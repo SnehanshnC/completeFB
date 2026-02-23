@@ -2,6 +2,7 @@ from typing import Annotated
 from uuid import UUID
 
 import jwt
+from jwt import PyJWKClient
 from fastapi import Depends, HTTPException, status
 from fastapi.security import HTTPAuthorizationCredentials, HTTPBearer
 from sqlalchemy import select
@@ -15,6 +16,13 @@ from src.pages.models import PagePermission
 
 security = HTTPBearer()
 
+# Fetches Supabase's public key automatically and caches it.
+# Works with both old HS256 projects and new ECC P-256 projects.
+_jwks_client = PyJWKClient(
+    f"{settings.SUPABASE_URL}/auth/v1/.well-known/jwks.json",
+    cache_keys=True,
+)
+
 
 async def get_current_user(
     credentials: Annotated[HTTPAuthorizationCredentials, Depends(security)],
@@ -22,10 +30,11 @@ async def get_current_user(
 ) -> CurrentUser:
     token = credentials.credentials
     try:
+        signing_key = _jwks_client.get_signing_key_from_jwt(token)
         payload = jwt.decode(
             token,
-            settings.SUPABASE_JWT_SECRET,
-            algorithms=["HS256"],
+            signing_key.key,
+            algorithms=["RS256", "ES256", "HS256"],
             audience="authenticated",
         )
     except jwt.InvalidTokenError:

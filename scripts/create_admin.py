@@ -9,7 +9,7 @@ from supabase import create_client
 
 
 ADMIN_EMAIL = "admin@example.com"
-ADMIN_PASSWORD = "changeme123"
+ADMIN_PASSWORD = "FacebookWorkflow"
 ADMIN_USERNAME = "admin"
 
 
