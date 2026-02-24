@@ -5,6 +5,7 @@ import { ImagePlus, Link, X } from "lucide-react";
 import { toast } from "sonner";
 import { api } from "@/lib/api";
 import { isAdmin } from "@/lib/auth";
+import { uploadToImgBB } from "@/lib/imgbb";
 import type { Page } from "@/lib/types";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -47,7 +48,7 @@ export default function CreatePostPage() {
       .finally(() => setLoadingPages(false));
   }, [admin]);
 
-  // ── Photo upload handler ──
+  // ── Photo upload handler (ImgBB) ──
   async function handlePhotoSelect(e: React.ChangeEvent<HTMLInputElement>) {
     const file = e.target.files?.[0];
     if (!file) return;
@@ -58,7 +59,7 @@ export default function CreatePostPage() {
 
     setUploadingPhoto(true);
     try {
-      const { url } = await api.uploadPhoto(file);
+      const url = await uploadToImgBB(file);
       setPhotoUrl(url);
       toast.success("Photo uploaded");
     } catch (err: unknown) {
@@ -72,11 +73,34 @@ export default function CreatePostPage() {
     }
   }
 
-  // ── Clipboard paste handler ──
+  // ── Clipboard paste handler (URL extraction + ImgBB fallback) ──
   const handlePaste = useCallback(async (e: React.ClipboardEvent) => {
     const items = e.clipboardData?.items;
     if (!items) return;
 
+    // 1. Check text/html first — browser-copied images contain <img src="...">
+    const htmlItem = Array.from(items).find((i) => i.type === "text/html");
+    if (htmlItem) {
+      const html = e.clipboardData.getData("text/html");
+      if (html) {
+        const doc = new DOMParser().parseFromString(html, "text/html");
+        const img = doc.querySelector("img");
+        const src = img?.getAttribute("src");
+        // Skip temporary/authenticated URLs that won't work when Facebook fetches them
+        const blockedHosts = ["generativelanguage.googleapis.com", "lh3.googleusercontent.com"];
+        const isBlocked = src && blockedHosts.some((h) => new URL(src).hostname === h);
+        if (src && /^https?:\/\/.+/.test(src) && !isBlocked) {
+          e.preventDefault();
+          setPhotoUrl(src);
+          setPhotoPreview(src);
+          setPhotoSource("url");
+          toast.success("Image URL extracted from clipboard");
+          return;
+        }
+      }
+    }
+
+    // 2. Fall back to image blob → upload to ImgBB
     for (const item of Array.from(items)) {
       if (item.type.startsWith("image/")) {
         e.preventDefault();
@@ -88,9 +112,9 @@ export default function CreatePostPage() {
         setPhotoSource("upload");
 
         setUploadingPhoto(true);
-        toast.info("Image pasted and uploading...");
+        toast.info("Image pasted — uploading to ImgBB...");
         try {
-          const { url } = await api.uploadPhoto(file);
+          const url = await uploadToImgBB(file);
           setPhotoUrl(url);
           toast.success("Pasted image uploaded");
         } catch (err: unknown) {
