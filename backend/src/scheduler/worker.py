@@ -12,29 +12,28 @@ from src.posts.models import ScheduledPost
 logger = logging.getLogger(__name__)
 
 POLL_INTERVAL = 5  # seconds
-_running = False
 
 
-async def _process_post(post: ScheduledPost, page: Page) -> None:
+async def _process_post(data: dict) -> None:
     try:
-        if post.photo_url:
+        if data["photo_url"]:
             result = await post_photo_to_page(
-                page.page_id, page.access_token, post.photo_url, post.message
+                data["page_id_fb"], data["access_token"], data["photo_url"], data["message"]
             )
         else:
-            result = await post_to_page(page.page_id, page.access_token, post.message)
+            result = await post_to_page(data["page_id_fb"], data["access_token"], data["message"])
 
         # On success, delete the row
         async with async_session() as db:
-            await db.execute(delete(ScheduledPost).where(ScheduledPost.id == post.id))
+            await db.execute(delete(ScheduledPost).where(ScheduledPost.id == data["post_id"]))
             await db.commit()
-        logger.info("Posted and deleted scheduled post %d (fb_id=%s)", post.id, result.get("id"))
+        logger.info("Posted and deleted scheduled post %d (fb_id=%s)", data["post_id"], result.get("id"))
 
     except Exception as e:
-        logger.error("Failed to post scheduled post %d: %s", post.id, e)
+        logger.error("Failed to post scheduled post %d: %s", data["post_id"], e)
         async with async_session() as db:
             result = await db.execute(
-                select(ScheduledPost).where(ScheduledPost.id == post.id)
+                select(ScheduledPost).where(ScheduledPost.id == data["post_id"])
             )
             p = result.scalar_one_or_none()
             if p:
@@ -44,49 +43,54 @@ async def _process_post(post: ScheduledPost, page: Page) -> None:
 
 
 async def _poll_and_execute() -> None:
-    global _running
-    if _running:
-        return
-    _running = True
-    try:
-        async with async_session() as db:
-            now = datetime.now(timezone.utc)
-            result = await db.execute(
-                select(ScheduledPost)
-                .where(
-                    ScheduledPost.status == "pending",
-                    ScheduledPost.scheduled_at <= now,
-                )
+    async with async_session() as db:
+        now = datetime.now(timezone.utc)
+        result = await db.execute(
+            select(ScheduledPost)
+            .where(
+                ScheduledPost.status == "pending",
+                ScheduledPost.scheduled_at <= now,
             )
-            due_posts = list(result.scalars().all())
+        )
+        due_posts = list(result.scalars().all())
 
-            if not due_posts:
-                return
+        if not due_posts:
+            return
 
-            # Fetch pages for all due posts
-            page_ids = {p.page_id for p in due_posts}
-            page_result = await db.execute(select(Page).where(Page.id.in_(page_ids)))
-            pages_by_id = {p.id: p for p in page_result.scalars().all()}
+        # Fetch pages for all due posts
+        page_ids = {p.page_id for p in due_posts}
+        page_result = await db.execute(select(Page).where(Page.id.in_(page_ids)))
+        pages_by_id = {p.id: p for p in page_result.scalars().all()}
 
-        tasks = []
+        # Extract plain data INSIDE the session
+        tasks_data = []
         for post in due_posts:
             page = pages_by_id.get(post.page_id)
             if not page:
                 logger.warning("Page %d not found for post %d", post.page_id, post.id)
                 continue
-            tasks.append(_process_post(post, page))
+            tasks_data.append({
+                "post_id": post.id,
+                "message": post.message,
+                "photo_url": post.photo_url,
+                "page_id_fb": page.page_id,
+                "access_token": page.access_token,
+            })
 
-        if tasks:
-            await asyncio.gather(*tasks, return_exceptions=True)
-    finally:
-        _running = False
+    # Process OUTSIDE session with plain dicts (no ORM dependency)
+    tasks = [_process_post(data) for data in tasks_data]
+    if tasks:
+        await asyncio.gather(*tasks, return_exceptions=True)
 
 
 async def run_scheduler() -> None:
     logger.info("Scheduler started (poll every %ds)", POLL_INTERVAL)
+    backoff = POLL_INTERVAL
     while True:
         try:
             await _poll_and_execute()
+            backoff = POLL_INTERVAL  # reset on success
         except Exception as e:
             logger.error("Scheduler error: %s", e)
-        await asyncio.sleep(POLL_INTERVAL)
+            backoff = min(backoff * 2, 60)  # cap at 60s
+        await asyncio.sleep(backoff)

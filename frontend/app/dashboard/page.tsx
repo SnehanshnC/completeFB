@@ -5,7 +5,7 @@ import { FileText, Users, CalendarClock, Calendar } from "lucide-react";
 import { motion } from "framer-motion";
 import StatCard from "@/components/stat-card";
 import { api } from "@/lib/api";
-import { getStoredUsername } from "@/lib/auth";
+import { getStoredUsername, isAdmin } from "@/lib/auth";
 
 function getGreeting(): string {
   const hour = new Date().getHours();
@@ -24,19 +24,33 @@ const item = {
   show: { opacity: 1, y: 0, transition: { duration: 0.35, ease: "easeOut" as const } },
 };
 
-export default function AdminDashboardPage() {
+export default function DashboardPage() {
   const [pageCount, setPageCount] = useState<number | null>(null);
   const [userCount, setUserCount] = useState<number | null>(null);
+  const [postCount, setPostCount] = useState<number | null>(null);
+  const admin = isAdmin();
   const username = getStoredUsername();
 
   useEffect(() => {
-    Promise.all([api.listPages(), api.listUsers()]).then(([pages, users]) => {
-      setPageCount(pages.length);
-      setUserCount(users.length);
-    });
-  }, []);
+    if (admin) {
+      Promise.all([api.listPages(), api.listUsers(), api.getScheduledPosts()]).then(
+        ([pages, users, posts]) => {
+          setPageCount(pages.length);
+          setUserCount(users.length);
+          setPostCount(posts.length);
+        }
+      );
+    } else {
+      Promise.all([api.getMyPages(), api.getScheduledPosts()]).then(
+        ([pages, posts]) => {
+          setPageCount(pages.length);
+          setPostCount(posts.length);
+        }
+      );
+    }
+  }, [admin]);
 
-  const loading = pageCount === null || userCount === null;
+  const loading = pageCount === null || postCount === null || (admin && userCount === null);
   const today = new Date().toLocaleDateString("en-US", {
     weekday: "short",
     month: "short",
@@ -50,16 +64,18 @@ export default function AdminDashboardPage() {
           {today}
         </p>
         <h1 className="mt-1 text-2xl font-semibold text-white">
-          {getGreeting()}, {username ?? "Admin"}
+          {getGreeting()}, {username ?? (admin ? "Admin" : "User")}
         </h1>
         <p className="mt-1 text-sm text-white/60">
-          Here&apos;s an overview of your platform.
+          {admin
+            ? "Here\u0027s an overview of your platform."
+            : "Here\u0027s your dashboard overview."}
         </p>
       </div>
 
       {loading ? (
         <div className="animate-pulse text-sm text-white/50">Loading...</div>
-      ) : (
+      ) : admin ? (
         <motion.div
           className="grid grid-cols-2 gap-4 lg:grid-cols-4"
           variants={container}
@@ -67,13 +83,30 @@ export default function AdminDashboardPage() {
           animate="show"
         >
           <motion.div variants={item}>
-            <StatCard icon={FileText} label="Total Pages" value={pageCount} />
+            <StatCard icon={FileText} label="Total Pages" value={pageCount!} />
           </motion.div>
           <motion.div variants={item}>
-            <StatCard icon={Users} label="Total Users" value={userCount} />
+            <StatCard icon={Users} label="Total Users" value={userCount!} />
           </motion.div>
           <motion.div variants={item}>
-            <StatCard icon={CalendarClock} label="Scheduled Posts" value={0} />
+            <StatCard icon={CalendarClock} label="Scheduled Posts" value={postCount!} />
+          </motion.div>
+          <motion.div variants={item}>
+            <StatCard icon={Calendar} label="Today" value={today} />
+          </motion.div>
+        </motion.div>
+      ) : (
+        <motion.div
+          className="grid grid-cols-2 gap-4 lg:grid-cols-3"
+          variants={container}
+          initial="hidden"
+          animate="show"
+        >
+          <motion.div variants={item}>
+            <StatCard icon={FileText} label="My Pages" value={pageCount!} />
+          </motion.div>
+          <motion.div variants={item}>
+            <StatCard icon={CalendarClock} label="Scheduled Posts" value={postCount!} />
           </motion.div>
           <motion.div variants={item}>
             <StatCard icon={Calendar} label="Today" value={today} />

@@ -6,17 +6,24 @@ import { LayoutDashboard, FileText, Users, Send, ClipboardList } from "lucide-re
 import AuroraBackground from "@/components/aurora-bg";
 import DashboardShell from "@/components/dashboard-shell";
 import Sidebar, { type NavItem } from "@/components/sidebar";
-import { getStoredToken, getStoredRole } from "@/lib/auth";
+import { getStoredToken, getStoredRole, isAdmin } from "@/lib/auth";
 
 const adminNav: NavItem[] = [
-  { label: "Dashboard", href: "/admin/dashboard", icon: LayoutDashboard },
-  { label: "Pages", href: "/admin/pages", icon: FileText },
-  { label: "Users", href: "/admin/users", icon: Users },
-  { label: "Post", href: "/admin/post", icon: Send },
-  { label: "Manage Posts", href: "/admin/manage-posts", icon: ClipboardList },
+  { label: "Dashboard", href: "/dashboard", icon: LayoutDashboard },
+  { label: "Pages", href: "/dashboard/pages", icon: FileText },
+  { label: "Users", href: "/dashboard/users", icon: Users },
+  { label: "Post", href: "/dashboard/post", icon: Send },
+  { label: "Manage Posts", href: "/dashboard/manage-posts", icon: ClipboardList },
 ];
 
-export default function AdminLayout({
+const vaNav: NavItem[] = [
+  { label: "Dashboard", href: "/dashboard", icon: LayoutDashboard },
+  { label: "My Pages", href: "/dashboard/pages", icon: FileText },
+  { label: "Post", href: "/dashboard/post", icon: Send },
+  { label: "Manage Posts", href: "/dashboard/manage-posts", icon: ClipboardList },
+];
+
+export default function DashboardLayout({
   children,
 }: {
   children: React.ReactNode;
@@ -27,7 +34,7 @@ export default function AdminLayout({
   useEffect(() => {
     const token = getStoredToken();
     const role = getStoredRole();
-    if (!token || role !== "admin") {
+    if (!token || !role) {
       router.push("/login");
     } else {
       setAuthorized(true);
@@ -36,10 +43,12 @@ export default function AdminLayout({
 
   if (!authorized) return null;
 
+  const navItems = isAdmin() ? adminNav : vaNav;
+
   return (
     <AuroraBackground>
       <DashboardShell sidebar={(collapsed, onToggle) => (
-        <Sidebar items={adminNav} collapsed={collapsed} onToggleCollapse={onToggle} />
+        <Sidebar items={navItems} collapsed={collapsed} onToggleCollapse={onToggle} />
       )}>
         {children}
       </DashboardShell>

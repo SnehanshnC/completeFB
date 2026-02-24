@@ -4,6 +4,7 @@ import { useEffect, useState } from "react";
 import { Plus, MoreHorizontal, KeyRound, ShieldCheck, Trash2 } from "lucide-react";
 import { toast } from "sonner";
 import { api } from "@/lib/api";
+import { isAdmin } from "@/lib/auth";
 import type { Page } from "@/lib/types";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -30,32 +31,36 @@ import {
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
 
-export default function AdminPagesPage() {
+export default function PagesPage() {
+  const admin = isAdmin();
   const [pages, setPages] = useState<Page[]>([]);
   const [loading, setLoading] = useState(true);
 
-  // Add Page dialog state
+  // Add Page dialog state (admin only)
   const [addOpen, setAddOpen] = useState(false);
   const [addLoading, setAddLoading] = useState(false);
   const [newPageId, setNewPageId] = useState("");
   const [newPageName, setNewPageName] = useState("");
   const [newAccessToken, setNewAccessToken] = useState("");
 
-  // Update Token dialog state
+  // Update Token dialog state (admin only)
   const [updateOpen, setUpdateOpen] = useState(false);
   const [updateLoading, setUpdateLoading] = useState(false);
   const [updateTarget, setUpdateTarget] = useState<Page | null>(null);
   const [updatedToken, setUpdatedToken] = useState("");
 
-  // Delete confirm dialog state
+  // Delete confirm dialog state (admin only)
   const [deleteOpen, setDeleteOpen] = useState(false);
   const [deleteLoading, setDeleteLoading] = useState(false);
   const [deleteTarget, setDeleteTarget] = useState<Page | null>(null);
 
+  // Validate loading state (VA)
+  const [validatingId, setValidatingId] = useState<number | null>(null);
+
   // ── Fetch pages ──
   const fetchPages = async () => {
     try {
-      const data = await api.listPages();
+      const data = admin ? await api.listPages() : await api.getMyPages();
       setPages(data);
     } catch (err: unknown) {
       const message = err instanceof Error ? err.message : "Failed to load pages";
@@ -69,7 +74,7 @@ export default function AdminPagesPage() {
     fetchPages();
   }, []);
 
-  // ── Add Page ──
+  // ── Add Page (admin) ──
   const resetAddForm = () => {
     setNewPageId("");
     setNewPageName("");
@@ -101,7 +106,7 @@ export default function AdminPagesPage() {
     }
   };
 
-  // ── Update Token ──
+  // ── Update Token (admin) ──
   const openUpdateDialog = (page: Page) => {
     setUpdateTarget(page);
     setUpdatedToken("");
@@ -132,6 +137,7 @@ export default function AdminPagesPage() {
 
   // ── Validate Token ──
   const handleValidateToken = async (page: Page) => {
+    setValidatingId(page.id);
     try {
       const result = await api.validatePageToken(page.id);
       if (result.valid) {
@@ -144,10 +150,12 @@ export default function AdminPagesPage() {
     } catch (err: unknown) {
       const message = err instanceof Error ? err.message : "Failed to validate token";
       toast.error(message);
+    } finally {
+      setValidatingId(null);
     }
   };
 
-  // ── Delete Page ──
+  // ── Delete Page (admin) ──
   const openDeleteDialog = (page: Page) => {
     setDeleteTarget(page);
     setDeleteOpen(true);
@@ -180,6 +188,78 @@ export default function AdminPagesPage() {
     });
   };
 
+  // ── VA card view ──
+  if (!admin) {
+    return (
+      <div className="space-y-6">
+        <div>
+          <h1 className="text-2xl font-bold text-white">My Pages</h1>
+          <p className="mt-1 text-sm text-white/60">
+            Facebook pages assigned to you. Contact an admin to update assignments.
+          </p>
+        </div>
+
+        {loading && (
+          <p className="animate-pulse text-sm text-white/50">
+            Loading your assigned pages...
+          </p>
+        )}
+
+        {!loading && pages.length === 0 && (
+          <div className="flex flex-col items-center justify-center rounded-xl border border-white/10 bg-[rgba(30,58,138,0.2)] px-6 py-16 text-center backdrop-blur-sm">
+            <ShieldCheck className="mb-3 h-10 w-10 text-white/30" />
+            <p className="text-sm text-white/50">No pages assigned yet.</p>
+            <p className="mt-1 text-xs text-white/40">
+              Ask your admin to assign pages to your account.
+            </p>
+          </div>
+        )}
+
+        {!loading && pages.length > 0 && (
+          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
+            {pages.map((page) => (
+              <div
+                key={page.id}
+                className="bg-[rgba(30,58,138,0.2)] border border-white/10 backdrop-blur-sm rounded-xl p-5 transition-colors hover:border-white/15 hover:bg-[rgba(30,58,138,0.3)]"
+              >
+                <h2 className="text-base font-semibold text-white truncate">
+                  {page.page_name}
+                </h2>
+                <div className="mt-3 space-y-1.5">
+                  <div className="flex items-center justify-between text-sm">
+                    <span className="text-white/60">Facebook Page ID</span>
+                    <span className="font-mono text-xs text-white/80">
+                      {page.page_id}
+                    </span>
+                  </div>
+                  <div className="flex items-center justify-between text-sm">
+                    <span className="text-white/60">Created</span>
+                    <span className="text-xs text-white/80">
+                      {formatDate(page.created_at)}
+                    </span>
+                  </div>
+                </div>
+                <div className="mt-4">
+                  <Button
+                    size="sm"
+                    variant="outline"
+                    disabled={validatingId === page.id}
+                    onClick={() => handleValidateToken(page)}
+                    className="border border-cyan-400/25 bg-cyan-500/20 text-white hover:bg-cyan-500/30"
+                  >
+                    <ShieldCheck className="mr-1.5 h-3.5 w-3.5" />
+                    {validatingId === page.id ? "Validating..." : "Validate Token"}
+                  </Button>
+                </div>
+              </div>
+            ))}
+          </div>
+        )}
+      </div>
+    );
+  }
+
+  // ── Admin table view ──
   return (
     <div className="space-y-6">
       {/* Header */}
@@ -344,7 +424,7 @@ export default function AdminPagesPage() {
         <DialogContent className="border-white/15 bg-[rgba(30,58,138,0.3)] backdrop-blur-[28px]">
           <DialogHeader>
             <DialogTitle className="text-white">
-              Update Token{updateTarget ? ` — ${updateTarget.page_name}` : ""}
+              Update Token{updateTarget ? ` \u2014 ${updateTarget.page_name}` : ""}
             </DialogTitle>
           </DialogHeader>
 

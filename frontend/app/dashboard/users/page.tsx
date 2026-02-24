@@ -1,9 +1,11 @@
 "use client";
 
 import { useEffect, useState } from "react";
+import { useRouter } from "next/navigation";
 import { Plus, MoreHorizontal, Shield, Trash2 } from "lucide-react";
 import { toast } from "sonner";
 import { api } from "@/lib/api";
+import { isAdmin } from "@/lib/auth";
 import type { Profile, Page } from "@/lib/types";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -30,11 +32,16 @@ import {
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
 
-/* ------------------------------------------------------------------ */
-/*  Admin User Management Page                                        */
-/* ------------------------------------------------------------------ */
+export default function UsersPage() {
+  const router = useRouter();
 
-export default function AdminUsersPage() {
+  // Guard: redirect non-admins
+  useEffect(() => {
+    if (!isAdmin()) {
+      router.push("/dashboard");
+    }
+  }, [router]);
+
   /* ── state: user list ── */
   const [users, setUsers] = useState<Profile[]>([]);
   const [loading, setLoading] = useState(true);
@@ -78,7 +85,7 @@ export default function AdminUsersPage() {
   };
 
   useEffect(() => {
-    fetchUsers();
+    if (isAdmin()) fetchUsers();
   }, []);
 
   /* ── add user handler ── */
@@ -202,9 +209,8 @@ export default function AdminUsersPage() {
     }
   };
 
-  /* ================================================================ */
-  /*  RENDER                                                          */
-  /* ================================================================ */
+  if (!isAdmin()) return null;
+
   return (
     <div className="space-y-6">
       {/* ── Header ── */}
@@ -303,9 +309,7 @@ export default function AdminUsersPage() {
         </div>
       )}
 
-      {/* ============================================================ */}
-      {/*  ADD USER DIALOG                                             */}
-      {/* ============================================================ */}
+      {/* ── ADD USER DIALOG ── */}
       <Dialog
         open={addOpen}
         onOpenChange={(open) => {
@@ -319,7 +323,6 @@ export default function AdminUsersPage() {
           </DialogHeader>
 
           <div className="space-y-4 py-2">
-            {/* Email */}
             <div className="space-y-2">
               <Label className="text-white/60">Email</Label>
               <Input
@@ -331,7 +334,6 @@ export default function AdminUsersPage() {
               />
             </div>
 
-            {/* Username */}
             <div className="space-y-2">
               <Label className="text-white/60">Username</Label>
               <Input
@@ -342,7 +344,6 @@ export default function AdminUsersPage() {
               />
             </div>
 
-            {/* Password */}
             <div className="space-y-2">
               <Label className="text-white/60">Password</Label>
               <Input
@@ -354,7 +355,6 @@ export default function AdminUsersPage() {
               />
             </div>
 
-            {/* Role */}
             <div className="space-y-2">
               <Label className="text-white/60">Role</Label>
               <select
@@ -395,9 +395,7 @@ export default function AdminUsersPage() {
         </DialogContent>
       </Dialog>
 
-      {/* ============================================================ */}
-      {/*  ASSIGN PAGES DIALOG                                         */}
-      {/* ============================================================ */}
+      {/* ── ASSIGN PAGES DIALOG ── */}
       <Dialog
         open={assignOpen}
         onOpenChange={(open) => {
@@ -480,9 +478,7 @@ export default function AdminUsersPage() {
         </DialogContent>
       </Dialog>
 
-      {/* ============================================================ */}
-      {/*  DELETE CONFIRM DIALOG                                       */}
-      {/* ============================================================ */}
+      {/* ── DELETE CONFIRM DIALOG ── */}
       <Dialog
         open={deleteOpen}
         onOpenChange={(open) => {

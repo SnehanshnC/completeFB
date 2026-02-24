@@ -10,6 +10,7 @@ import {
 } from "lucide-react";
 import { toast } from "sonner";
 import { api } from "@/lib/api";
+import { isAdmin } from "@/lib/auth";
 import type { ScheduledPost, Page, Profile } from "@/lib/types";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -89,6 +90,8 @@ function formatDateTime(iso: string): string {
 // ---------------------------------------------------------------------------
 
 export default function ManagePostsPage() {
+  const admin = isAdmin();
+
   // ---- data state ----------------------------------------------------------
   const [posts, setPosts] = useState<ScheduledPost[]>([]);
   const [pages, setPages] = useState<Page[]>([]);
@@ -137,24 +140,33 @@ export default function ManagePostsPage() {
         pageFilter === "all" || post.page_id === Number(pageFilter);
 
       const matchesUser =
-        userFilter === "all" || post.user_id === userFilter;
+        !admin || userFilter === "all" || post.user_id === userFilter;
 
       return matchesSearch && matchesPage && matchesUser;
     });
-  }, [posts, search, pageFilter, userFilter]);
+  }, [posts, search, pageFilter, userFilter, admin]);
 
   // ---- data fetching -------------------------------------------------------
   const fetchData = async () => {
     setLoading(true);
     try {
-      const [postsData, pagesData, usersData] = await Promise.all([
-        api.getScheduledPosts(),
-        api.listPages(),
-        api.listUsers(),
-      ]);
-      setPosts(postsData);
-      setPages(pagesData);
-      setUsers(usersData);
+      if (admin) {
+        const [postsData, pagesData, usersData] = await Promise.all([
+          api.getScheduledPosts(),
+          api.listPages(),
+          api.listUsers(),
+        ]);
+        setPosts(postsData);
+        setPages(pagesData);
+        setUsers(usersData);
+      } else {
+        const [postsData, pagesData] = await Promise.all([
+          api.getScheduledPosts(),
+          api.getMyPages(),
+        ]);
+        setPosts(postsData);
+        setPages(pagesData);
+      }
     } catch (err: unknown) {
       const message =
         err instanceof Error ? err.message : "Failed to load data";
@@ -173,7 +185,6 @@ export default function ManagePostsPage() {
     setEditPost(post);
     setEditMessage(post.message);
     setEditPhotoUrl(post.photo_url ?? "");
-    // Convert to datetime-local format (YYYY-MM-DDTHH:mm)
     const dt = new Date(post.scheduled_at);
     const local = new Date(dt.getTime() - dt.getTimezoneOffset() * 60000)
       .toISOString()
@@ -248,12 +259,17 @@ export default function ManagePostsPage() {
     <div className="flex flex-col h-full w-full">
       {/* Header */}
       <div className="flex items-center justify-between mb-6">
-        <h1 className="text-2xl font-bold text-white tracking-tight">
-          Manage Posts
-        </h1>
+        <div>
+          <h1 className="text-2xl font-bold text-white tracking-tight">
+            Manage Posts
+          </h1>
+          <p className="mt-1 text-sm text-white/60">
+            {admin ? "View and manage all scheduled posts." : "View and manage your scheduled posts."}
+          </p>
+        </div>
       </div>
 
-      {/* Filter Bar — sticky at top */}
+      {/* Filter Bar */}
       <div className="sticky top-0 z-20 bg-[rgba(30,58,138,0.2)] border border-white/10 backdrop-blur-sm rounded-xl p-4 mb-4">
         <div className="flex flex-wrap items-end gap-4">
           {/* Search */}
@@ -293,32 +309,34 @@ export default function ManagePostsPage() {
             </select>
           </div>
 
-          {/* User filter */}
-          <div className="min-w-[180px]">
-            <Label className="text-white/60 text-xs mb-1 block">User</Label>
-            <select
-              value={userFilter}
-              onChange={(e) => setUserFilter(e.target.value)}
-              className="w-full h-9 px-3 rounded-md text-sm bg-[rgba(30,58,138,0.2)] border border-white/12 text-white placeholder:text-white/40 focus:outline-none focus:ring-2 focus:ring-cyan-500/40"
-            >
-              <option value="all" className="bg-[rgb(30,58,138)] text-white">
-                All Users
-              </option>
-              {users.map((u) => (
-                <option
-                  key={u.id}
-                  value={u.id}
-                  className="bg-[rgb(30,58,138)] text-white"
-                >
-                  {u.username}
+          {/* User filter (admin only) */}
+          {admin && (
+            <div className="min-w-[180px]">
+              <Label className="text-white/60 text-xs mb-1 block">User</Label>
+              <select
+                value={userFilter}
+                onChange={(e) => setUserFilter(e.target.value)}
+                className="w-full h-9 px-3 rounded-md text-sm bg-[rgba(30,58,138,0.2)] border border-white/12 text-white placeholder:text-white/40 focus:outline-none focus:ring-2 focus:ring-cyan-500/40"
+              >
+                <option value="all" className="bg-[rgb(30,58,138)] text-white">
+                  All Users
                 </option>
-              ))}
-            </select>
-          </div>
+                {users.map((u) => (
+                  <option
+                    key={u.id}
+                    value={u.id}
+                    className="bg-[rgb(30,58,138)] text-white"
+                  >
+                    {u.username}
+                  </option>
+                ))}
+              </select>
+            </div>
+          )}
         </div>
       </div>
 
-      {/* Table container — scrollable */}
+      {/* Table container */}
       <div className="flex-1 overflow-auto bg-[rgba(30,58,138,0.2)] border border-white/10 backdrop-blur-sm rounded-xl">
         {loading ? (
           <div className="flex items-center justify-center py-20">
@@ -340,7 +358,9 @@ export default function ManagePostsPage() {
               <TableRow className="border-white/10 hover:bg-transparent">
                 <TableHead className="text-white/60">Message</TableHead>
                 <TableHead className="text-white/60">Page</TableHead>
-                <TableHead className="text-white/60">User</TableHead>
+                {admin && (
+                  <TableHead className="text-white/60">User</TableHead>
+                )}
                 <TableHead className="text-white/60">Scheduled At</TableHead>
                 <TableHead className="text-white/60">Status</TableHead>
                 <TableHead className="text-white/60 text-right">
@@ -360,9 +380,11 @@ export default function ManagePostsPage() {
                   <TableCell className="text-white/80">
                     {pageMap.get(post.page_id) ?? `Page #${post.page_id}`}
                   </TableCell>
-                  <TableCell className="text-white/80">
-                    {userMap.get(post.user_id) ?? post.user_id}
-                  </TableCell>
+                  {admin && (
+                    <TableCell className="text-white/80">
+                      {userMap.get(post.user_id) ?? post.user_id}
+                    </TableCell>
+                  )}
                   <TableCell className="text-white/70 whitespace-nowrap">
                     {formatDateTime(post.scheduled_at)}
                   </TableCell>
@@ -415,7 +437,7 @@ export default function ManagePostsPage() {
         )}
       </div>
 
-      {/* ── Edit Post Dialog ─────────────────────────────────────────────── */}
+      {/* ── Edit Post Dialog ── */}
       <Dialog open={editOpen} onOpenChange={setEditOpen}>
         <DialogContent className="bg-[rgba(30,58,138,0.3)] backdrop-blur-[28px] border-white/15 text-white sm:max-w-lg">
           <DialogHeader>
@@ -423,7 +445,6 @@ export default function ManagePostsPage() {
           </DialogHeader>
 
           <div className="space-y-4 py-2">
-            {/* Message */}
             <div className="space-y-1.5">
               <Label className="text-white/70">Message</Label>
               <Textarea
@@ -434,7 +455,6 @@ export default function ManagePostsPage() {
               />
             </div>
 
-            {/* Photo URL */}
             <div className="space-y-1.5">
               <Label className="text-white/70">Photo URL</Label>
               <Input
@@ -445,14 +465,13 @@ export default function ManagePostsPage() {
               />
             </div>
 
-            {/* Scheduled At */}
             <div className="space-y-1.5">
               <Label className="text-white/70">Scheduled At</Label>
               <Input
                 type="datetime-local"
                 value={editScheduledAt}
                 onChange={(e) => setEditScheduledAt(e.target.value)}
-                className="bg-[rgba(30,58,138,0.2)] border-white/12 text-white placeholder:text-white/40"
+                className="bg-[rgba(30,58,138,0.2)] border-white/12 text-white placeholder:text-white/40 [color-scheme:dark]"
               />
             </div>
           </div>
@@ -476,7 +495,7 @@ export default function ManagePostsPage() {
         </DialogContent>
       </Dialog>
 
-      {/* ── Delete Confirm Dialog ────────────────────────────────────────── */}
+      {/* ── Delete Confirm Dialog ── */}
       <Dialog open={deleteOpen} onOpenChange={setDeleteOpen}>
         <DialogContent className="bg-[rgba(30,58,138,0.3)] backdrop-blur-[28px] border-white/15 text-white sm:max-w-md">
           <DialogHeader>

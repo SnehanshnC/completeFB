@@ -29,11 +29,7 @@ export default function LoginPage() {
       storeAuth(data.access_token, data.user);
       toast.success("Login successful");
 
-      if (data.user.role === "admin") {
-        router.push("/admin/dashboard");
-      } else {
-        router.push("/va/dashboard");
-      }
+      router.push("/dashboard");
     } catch (error) {
       toast.error(
         error instanceof Error ? error.message : "Failed to connect to server"
