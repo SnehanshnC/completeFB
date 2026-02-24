@@ -2,7 +2,7 @@
 
 import { useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
-import { LayoutDashboard, FileText, Send } from "lucide-react";
+import { LayoutDashboard, FileText, Send, ClipboardList } from "lucide-react";
 import AuroraBackground from "@/components/aurora-bg";
 import DashboardShell from "@/components/dashboard-shell";
 import Sidebar, { type NavItem } from "@/components/sidebar";
@@ -12,6 +12,7 @@ const vaNav: NavItem[] = [
   { label: "Dashboard", href: "/va/dashboard", icon: LayoutDashboard },
   { label: "My Pages", href: "/va/pages", icon: FileText },
   { label: "Post", href: "/va/post", icon: Send },
+  { label: "Manage Posts", href: "/va/manage-posts", icon: ClipboardList },
 ];
 
 export default function VaLayout({

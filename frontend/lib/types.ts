@@ -39,3 +39,47 @@ export interface ScheduledPost {
   created_at: string;
   updated_at: string;
 }
+
+export interface CreateUserPayload {
+  email: string;
+  password: string;
+  username: string;
+  role: "admin" | "va";
+}
+
+export interface CreatePagePayload {
+  page_id: string;
+  page_name: string;
+  access_token: string;
+}
+
+export interface ImmediatePostPayload {
+  page_id: number;
+  message: string;
+  photo_url?: string;
+}
+
+export interface ScheduledPostPayload {
+  page_id: number;
+  message: string;
+  scheduled_at: string;
+  photo_url?: string;
+}
+
+export interface UpdatePostPayload {
+  message?: string;
+  photo_url?: string;
+  scheduled_at?: string;
+}
+
+export interface ImmediatePostResponse {
+  fb_post_id: string;
+  message: string;
+}
+
+export interface ValidateTokenResponse {
+  valid: boolean;
+  fb_page_id?: string;
+  fb_page_name?: string;
+  error?: string;
+}

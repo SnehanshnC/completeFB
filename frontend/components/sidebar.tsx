@@ -28,7 +28,7 @@ export default function Sidebar({ items, collapsed, onToggleCollapse }: SidebarP
   };
 
   return (
-    <nav className="flex flex-col justify-between bg-[rgba(30,58,138,0.2)] backdrop-blur-sm">
+    <nav className="flex flex-col justify-between overflow-y-auto bg-[rgba(30,58,138,0.2)] backdrop-blur-sm">
       {/* Brand section */}
       <div>
         <div className="flex items-center justify-between px-5 pt-6 pb-4">

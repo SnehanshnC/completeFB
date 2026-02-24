@@ -8,7 +8,7 @@ export default function AuroraBackground({
   children: React.ReactNode;
 }) {
   return (
-    <div className="relative min-h-screen overflow-hidden bg-[#0f1a3a]">
+    <div className="relative h-screen overflow-hidden bg-[#0f1a3a]">
       <div className="absolute inset-0">
         <Aurora
           className="h-full w-full opacity-90"

@@ -2,7 +2,7 @@
 
 import { useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
-import { LayoutDashboard, FileText, Users, Send } from "lucide-react";
+import { LayoutDashboard, FileText, Users, Send, ClipboardList } from "lucide-react";
 import AuroraBackground from "@/components/aurora-bg";
 import DashboardShell from "@/components/dashboard-shell";
 import Sidebar, { type NavItem } from "@/components/sidebar";
@@ -13,6 +13,7 @@ const adminNav: NavItem[] = [
   { label: "Pages", href: "/admin/pages", icon: FileText },
   { label: "Users", href: "/admin/users", icon: Users },
   { label: "Post", href: "/admin/post", icon: Send },
+  { label: "Manage Posts", href: "/admin/manage-posts", icon: ClipboardList },
 ];
 
 export default function AdminLayout({
