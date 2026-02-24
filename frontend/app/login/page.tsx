@@ -26,7 +26,7 @@ export default function LoginPage() {
 
     try {
       const data = await api.login(username, password);
-      storeAuth(data.access_token, data.user);
+      storeAuth(data.user);
       storeExpiry(data.expires_in);
       toast.success("Login successful");
 

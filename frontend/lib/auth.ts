@@ -5,8 +5,7 @@ const ROLE_KEY = "role";
 const USERNAME_KEY = "username";
 const EXPIRY_KEY = "token_expiry";
 
-export function storeAuth(accessToken: string, user: User) {
-  localStorage.setItem(TOKEN_KEY, accessToken);
+export function storeAuth(user: User) {
   localStorage.setItem(ROLE_KEY, user.role);
   localStorage.setItem(USERNAME_KEY, user.username);
 }
@@ -29,11 +28,6 @@ export function getExpiry(): number | null {
   return val ? Number(val) : null;
 }
 
-export function getStoredToken(): string | null {
-  if (typeof window === "undefined") return null;
-  return localStorage.getItem(TOKEN_KEY);
-}
-
 export function getStoredRole(): string | null {
   if (typeof window === "undefined") return null;
   return localStorage.getItem(ROLE_KEY);
@@ -45,7 +39,7 @@ export function getStoredUsername(): string | null {
 }
 
 export function isAuthenticated(): boolean {
-  return !!getStoredToken();
+  return !!getStoredRole();
 }
 
 export function isAdmin(): boolean {

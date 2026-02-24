@@ -1,4 +1,4 @@
-import { getStoredToken, clearAuth } from "./auth";
+import { clearAuth } from "./auth";
 import type {
   LoginResponse,
   Page,
@@ -13,7 +13,7 @@ import type {
   ValidateTokenResponse,
 } from "./types";
 
-const BASE_URL = process.env.NEXT_PUBLIC_API_URL ?? "http://localhost:8000";
+const BASE_URL = process.env.NEXT_PUBLIC_API_URL ?? "/api";
 
 const inflight = new Map<string, Promise<any>>();
 
@@ -27,23 +27,20 @@ async function request<T>(path: string, options?: RequestInit): Promise<T> {
   }
 
   const promise = (async () => {
-    const token = getStoredToken();
     const headers: HeadersInit = {
       "Content-Type": "application/json",
       ...options?.headers,
     };
 
-    if (token) {
-      (headers as Record<string, string>)["Authorization"] = `Bearer ${token}`;
-    }
-
     const res = await fetch(`${BASE_URL}${path}`, {
       ...options,
       headers,
+      credentials: "include",
     });
 
     if (!res.ok) {
       if (res.status === 401) {
+        fetch(`${BASE_URL}/auth/logout`, { method: "POST", credentials: "include" }).catch(() => {});
         clearAuth();
         if (typeof window !== "undefined") {
           window.location.href = "/login";
@@ -66,18 +63,15 @@ async function request<T>(path: string, options?: RequestInit): Promise<T> {
 }
 
 async function requestMultipart<T>(path: string, body: FormData): Promise<T> {
-  const token = getStoredToken();
-  const headers: Record<string, string> = {};
-  if (token) headers["Authorization"] = `Bearer ${token}`;
-
   const res = await fetch(`${BASE_URL}${path}`, {
     method: "POST",
-    headers,
     body,
+    credentials: "include",
   });
 
   if (!res.ok) {
     if (res.status === 401) {
+      fetch(`${BASE_URL}/auth/logout`, { method: "POST", credentials: "include" }).catch(() => {});
       clearAuth();
       if (typeof window !== "undefined") {
         window.location.href = "/login";
@@ -98,6 +92,10 @@ export const api = {
       method: "POST",
       body: JSON.stringify({ username, password }),
     });
+  },
+
+  logout() {
+    return request<{ detail: string }>("/auth/logout", { method: "POST" });
   },
 
   getMyPages() {

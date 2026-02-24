@@ -7,7 +7,7 @@ import AuroraBackground from "@/components/aurora-bg";
 import DashboardShell from "@/components/dashboard-shell";
 import Sidebar, { type NavItem } from "@/components/sidebar";
 import { toast } from "sonner";
-import { getStoredToken, getStoredRole, isAdmin, clearAuth, getExpiry } from "@/lib/auth";
+import { getStoredRole, isAdmin, clearAuth, getExpiry } from "@/lib/auth";
 
 const adminNav: NavItem[] = [
   { label: "Dashboard", href: "/dashboard", icon: LayoutDashboard },
@@ -33,9 +33,8 @@ export default function DashboardLayout({
   const [authorized, setAuthorized] = useState(false);
 
   useEffect(() => {
-    const token = getStoredToken();
     const role = getStoredRole();
-    if (!token || !role) {
+    if (!role) {
       router.push("/login");
     } else {
       setAuthorized(true);

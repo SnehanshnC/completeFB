@@ -6,8 +6,6 @@ export interface User {
 }
 
 export interface LoginResponse {
-  access_token: string;
-  token_type: string;
   expires_in: number;
   user: User;
 }
@@ -28,14 +26,14 @@ export interface Profile {
 
 export interface ScheduledPost {
   id: number;
-  user_id: string;
+  user_id?: string;
   page_id: number;
   message: string;
   photo_url: string | null;
   scheduled_at: string;
   status: string;
-  fb_post_id: string | null;
-  error_message: string | null;
+  fb_post_id?: string | null;
+  error_message?: string | null;
   created_at: string;
   updated_at: string;
 }

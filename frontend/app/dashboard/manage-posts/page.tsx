@@ -390,7 +390,7 @@ export default function ManagePostsPage() {
                   </TableCell>
                   {admin && (
                     <TableCell className="text-white/80">
-                      {userMap.get(post.user_id) ?? post.user_id}
+                      {post.user_id ? (userMap.get(post.user_id) ?? post.user_id) : "\u2014"}
                     </TableCell>
                   )}
                   <TableCell className="text-white/70 whitespace-nowrap">
