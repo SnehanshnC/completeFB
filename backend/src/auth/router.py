@@ -1,6 +1,6 @@
 from fastapi import APIRouter, HTTPException, status
 from sqlalchemy import select
-from supabase import create_client
+from supabase import ClientOptions, create_client
 
 from src.auth.dependencies import CurrentUserDep
 from src.auth.schemas import CurrentUser, LoginRequest, LoginResponse
@@ -29,7 +29,11 @@ async def login(data: LoginRequest, db: DbSession):
             detail="Invalid username or password",
         )
 
-    supabase = create_client(settings.SUPABASE_URL, settings.SUPABASE_ANON_KEY)
+    supabase = create_client(
+        settings.SUPABASE_URL,
+        settings.SUPABASE_ANON_KEY,
+        options=ClientOptions(auto_refresh_token=False),
+    )
     try:
         auth_response = supabase.auth.sign_in_with_password(
             {"email": profile.email, "password": data.password}

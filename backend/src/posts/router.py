@@ -1,3 +1,5 @@
+from datetime import datetime, timedelta, timezone
+
 from fastapi import APIRouter, HTTPException, UploadFile, status
 
 from src.auth.dependencies import CurrentUserDep
@@ -59,8 +61,7 @@ async def upload_photo_endpoint(file: UploadFile, user: CurrentUserDep):
     contents = await file.read()
     if len(contents) > MAX_SIZE:
         raise HTTPException(status_code=400, detail="File too large. Max 5MB")
-    ext = file.filename.rsplit(".", 1)[-1] if file.filename and "." in file.filename else "jpg"
-    url = await upload_photo(str(user.id), contents, file.content_type, ext)
+    url = await upload_photo(contents)
     return {"url": url}
 
 
@@ -97,6 +98,8 @@ async def update_scheduled(
         raise HTTPException(status_code=403, detail="Not authorized")
     if post.status != "pending":
         raise HTTPException(status_code=400, detail="Can only update pending posts")
+    if data.scheduled_at and data.scheduled_at < datetime.now(timezone.utc) + timedelta(seconds=30):
+        raise HTTPException(status_code=400, detail="Scheduled time must be in the future")
     return await service.update_scheduled_post(db, post, data)
 
 

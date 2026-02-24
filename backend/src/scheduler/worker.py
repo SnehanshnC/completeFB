@@ -30,7 +30,8 @@ async def _process_post(data: dict) -> None:
         logger.info("Posted and deleted scheduled post %d (fb_id=%s)", data["post_id"], result.get("id"))
 
     except Exception as e:
-        logger.error("Failed to post scheduled post %d: %s", data["post_id"], e)
+        error_detail = repr(e) if not str(e) else str(e)
+        logger.exception("Failed to post scheduled post %d: %s", data["post_id"], error_detail)
         async with async_session() as db:
             result = await db.execute(
                 select(ScheduledPost).where(ScheduledPost.id == data["post_id"])
@@ -38,7 +39,7 @@ async def _process_post(data: dict) -> None:
             p = result.scalar_one_or_none()
             if p:
                 p.status = "failed"
-                p.error_message = str(e)
+                p.error_message = error_detail
                 await db.commit()
 
 

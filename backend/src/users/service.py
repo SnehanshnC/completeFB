@@ -3,7 +3,7 @@ from uuid import UUID
 
 from sqlalchemy import delete, select
 from sqlalchemy.ext.asyncio import AsyncSession
-from supabase import create_client
+from supabase import ClientOptions, create_client
 
 from src.config import settings
 from src.users.models import Profile
@@ -14,7 +14,11 @@ logger = logging.getLogger(__name__)
 
 
 def _get_supabase_admin():
-    return create_client(settings.SUPABASE_URL, settings.SUPABASE_SERVICE_ROLE_KEY)
+    return create_client(
+        settings.SUPABASE_URL,
+        settings.SUPABASE_SERVICE_ROLE_KEY,
+        options=ClientOptions(auto_refresh_token=False),
+    )
 
 
 async def create_user(db: AsyncSession, data: ProfileCreate) -> Profile:

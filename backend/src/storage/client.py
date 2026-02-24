@@ -1,25 +1,24 @@
+import base64
 import logging
-import uuid
 
-from supabase import create_client
+import httpx
 
 from src.config import settings
 
 logger = logging.getLogger(__name__)
 
-BUCKET = "photos"
 ALLOWED_TYPES = {"image/jpeg", "image/png", "image/webp", "image/gif"}
 MAX_SIZE = 5 * 1024 * 1024  # 5MB
 
 
-async def upload_photo(user_id: str, file_bytes: bytes, content_type: str, ext: str) -> str:
-    supabase = create_client(settings.SUPABASE_URL, settings.SUPABASE_SERVICE_ROLE_KEY)
-    path = f"{user_id}/{uuid.uuid4()}.{ext}"
-    supabase.storage.from_(BUCKET).upload(
-        path,
-        file_bytes,
-        {"content-type": content_type},
-    )
-    public_url = supabase.storage.from_(BUCKET).get_public_url(path)
-    logger.info("Uploaded photo to %s", path)
-    return public_url
+async def upload_photo(file_bytes: bytes) -> str:
+    encoded = base64.b64encode(file_bytes).decode()
+    async with httpx.AsyncClient() as client:
+        resp = await client.post(
+            "https://api.imgbb.com/1/upload",
+            data={"key": settings.IMGBB_API_KEY, "image": encoded},
+        )
+    resp.raise_for_status()
+    url = resp.json()["data"]["display_url"]
+    logger.info("Uploaded photo to imgBB: %s", url)
+    return url
