@@ -37,7 +37,9 @@ export default function AdminLayout({
 
   return (
     <AuroraBackground>
-      <DashboardShell sidebar={<Sidebar items={adminNav} />}>
+      <DashboardShell sidebar={(collapsed, onToggle) => (
+        <Sidebar items={adminNav} collapsed={collapsed} onToggleCollapse={onToggle} />
+      )}>
         {children}
       </DashboardShell>
     </AuroraBackground>

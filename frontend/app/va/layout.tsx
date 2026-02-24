@@ -35,7 +35,9 @@ export default function VaLayout({
 
   return (
     <AuroraBackground>
-      <DashboardShell sidebar={<Sidebar items={vaNav} />}>
+      <DashboardShell sidebar={(collapsed, onToggle) => (
+        <Sidebar items={vaNav} collapsed={collapsed} onToggleCollapse={onToggle} />
+      )}>
         {children}
       </DashboardShell>
     </AuroraBackground>

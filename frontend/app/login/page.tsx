@@ -2,7 +2,7 @@
 
 import React, { useState } from "react";
 import { useRouter } from "next/navigation";
-import { Lock } from "lucide-react";
+import { Lock, Eye, EyeOff } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -14,9 +14,10 @@ import { api } from "@/lib/api";
 import { storeAuth } from "@/lib/auth";
 
 export default function LoginPage() {
-  const [email, setEmail] = useState("");
+  const [username, setUsername] = useState("");
   const [password, setPassword] = useState("");
   const [isLoading, setIsLoading] = useState(false);
+  const [showPassword, setShowPassword] = useState(false);
   const router = useRouter();
 
   const handleLogin = async (e: React.FormEvent) => {
@@ -24,7 +25,7 @@ export default function LoginPage() {
     setIsLoading(true);
 
     try {
-      const data = await api.login(email, password);
+      const data = await api.login(username, password);
       storeAuth(data.access_token, data.user);
       toast.success("Login successful");
 
@@ -54,18 +55,18 @@ export default function LoginPage() {
         }}
         className="mx-auto flex min-h-screen w-full max-w-[460px] flex-col items-center justify-center px-4 py-12"
       >
-        <Card className="relative w-full overflow-hidden border-white/25 bg-white/12 text-white shadow-[0_18px_50px_-22px_rgba(15,23,42,0.65)] backdrop-blur-[28px]">
-          <div className="pointer-events-none absolute inset-0 rounded-[inherit] border border-white/25" />
-          <div className="pointer-events-none absolute inset-0 bg-white/10 opacity-60 [mask-image:radial-gradient(120%_80%_at_50%_0%,#fff,transparent_70%)]" />
+        <Card className="relative w-full overflow-hidden border-white/15 bg-[rgba(30,58,138,0.3)] text-white shadow-[0_18px_50px_-22px_rgba(15,23,42,0.65)] backdrop-blur-[28px]">
+          <div className="pointer-events-none absolute inset-0 rounded-[inherit] border border-white/15" />
+          <div className="pointer-events-none absolute inset-0 bg-blue-400/8 opacity-50 [mask-image:radial-gradient(120%_80%_at_50%_0%,#fff,transparent_70%)]" />
           <CardHeader className="relative z-10 space-y-6 pb-6 pt-10 text-center">
-            <div className="mx-auto flex h-12 w-12 items-center justify-center rounded-2xl bg-white/10 backdrop-blur-md shadow-inner ring-1 ring-white/20">
+            <div className="mx-auto flex h-12 w-12 items-center justify-center rounded-2xl bg-cyan-500/15 backdrop-blur-md shadow-inner ring-1 ring-cyan-400/20">
               <Lock className="h-6 w-6 text-white" />
             </div>
             <div className="space-y-2">
               <CardTitle className="text-3xl font-semibold tracking-tight text-white">
-                FB Poster
+                iScales
               </CardTitle>
-              <p className="text-sm text-white/70">
+              <p className="text-sm text-white/50">
                 Sign in to manage your pages
               </p>
             </div>
@@ -73,16 +74,16 @@ export default function LoginPage() {
           <CardContent className="relative z-10 pb-10 px-8">
             <form onSubmit={handleLogin} className="space-y-5">
               <div className="space-y-2">
-                <Label className="sr-only" htmlFor="email">
-                  Email
+                <Label className="sr-only" htmlFor="username">
+                  Username
                 </Label>
                 <Input
-                  id="email"
-                  type="email"
-                  placeholder="Email"
-                  value={email}
-                  onChange={(e) => setEmail(e.target.value)}
-                  className="h-12 border-white/20 bg-white/8 text-white placeholder:text-white/60 focus-visible:ring-white/30 focus-visible:border-white/45 transition-all backdrop-blur-sm rounded-lg"
+                  id="username"
+                  type="text"
+                  placeholder="Username"
+                  value={username}
+                  onChange={(e) => setUsername(e.target.value)}
+                  className="h-12 border-white/12 bg-[rgba(30,58,138,0.2)] text-white placeholder:text-white/40 focus-visible:ring-cyan-400/30 focus-visible:border-cyan-400/40 transition-all backdrop-blur-sm rounded-lg"
                   required
                 />
               </div>
@@ -90,19 +91,29 @@ export default function LoginPage() {
                 <Label className="sr-only" htmlFor="password">
                   Password
                 </Label>
-                <Input
-                  id="password"
-                  type="password"
-                  placeholder="Password"
-                  value={password}
-                  onChange={(e) => setPassword(e.target.value)}
-                  className="h-12 border-white/20 bg-white/8 text-white placeholder:text-white/60 focus-visible:ring-white/30 focus-visible:border-white/45 transition-all backdrop-blur-sm rounded-lg"
-                  required
-                />
+                <div className="relative">
+                  <Input
+                    id="password"
+                    type={showPassword ? "text" : "password"}
+                    placeholder="Password"
+                    value={password}
+                    onChange={(e) => setPassword(e.target.value)}
+                    className="h-12 border-white/12 bg-[rgba(30,58,138,0.2)] text-white placeholder:text-white/40 focus-visible:ring-cyan-400/30 focus-visible:border-cyan-400/40 transition-all backdrop-blur-sm rounded-lg pr-12"
+                    required
+                  />
+                  <button
+                    type="button"
+                    onClick={() => setShowPassword((v) => !v)}
+                    className="absolute right-3 top-1/2 -translate-y-1/2 text-white/40 hover:text-white/60 transition-colors"
+                    tabIndex={-1}
+                  >
+                    {showPassword ? <EyeOff className="size-5" /> : <Eye className="size-5" />}
+                  </button>
+                </div>
               </div>
               <Button
                 type="submit"
-                className="h-12 w-full rounded-lg border border-white/20 bg-white/18 text-white text-base font-medium shadow-lg transition-all hover:bg-white/28"
+                className="h-12 w-full rounded-lg border border-cyan-400/25 bg-cyan-500/20 text-white text-base font-medium shadow-lg transition-all hover:bg-cyan-500/30"
                 disabled={isLoading}
               >
                 {isLoading ? "Signing in..." : "Sign In"}
