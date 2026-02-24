@@ -8,7 +8,7 @@ from src.users.models import Profile
 from supabase import create_client
 
 
-ADMIN_EMAIL = "admin@example.com"
+ADMIN_EMAIL = "iamsnehanshn@gmail.com"
 ADMIN_PASSWORD = "FacebookWorkflow"
 ADMIN_USERNAME = "admin"
 
