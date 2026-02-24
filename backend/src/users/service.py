@@ -28,7 +28,7 @@ async def create_user(db: AsyncSession, data: ProfileCreate) -> Profile:
     )
     user_id = auth_response.user.id
 
-    profile = Profile(id=user_id, username=data.username, role=data.role)
+    profile = Profile(id=user_id, username=data.username, email=data.email, role=data.role)
     db.add(profile)
     await db.commit()
     await db.refresh(profile)

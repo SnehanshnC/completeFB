@@ -15,35 +15,36 @@ router = APIRouter(prefix="/auth", tags=["auth"])
 @router.post("/login", response_model=LoginResponse)
 async def login(data: LoginRequest, db: DbSession):
     """
-    Exchange email/password for a JWT. The Supabase anon key never
-    leaves the server — the client only ever sends credentials here
-    and receives a token back.
+    Exchange username/password for a JWT. Resolves the username to the
+    email stored in the profiles table, then authenticates via Supabase.
     """
+    # Look up the profile by username to get the associated email
+    result = await db.execute(
+        select(Profile).where(Profile.username == data.username)
+    )
+    profile = result.scalar_one_or_none()
+    if not profile:
+        raise HTTPException(
+            status_code=status.HTTP_401_UNAUTHORIZED,
+            detail="Invalid username or password",
+        )
+
     supabase = create_client(settings.SUPABASE_URL, settings.SUPABASE_ANON_KEY)
     try:
         auth_response = supabase.auth.sign_in_with_password(
-            {"email": data.email, "password": data.password}
+            {"email": profile.email, "password": data.password}
         )
     except Exception:
         raise HTTPException(
             status_code=status.HTTP_401_UNAUTHORIZED,
-            detail="Invalid email or password",
+            detail="Invalid username or password",
         )
 
     session = auth_response.session
-    sb_user = auth_response.user
-    if not session or not sb_user:
+    if not session:
         raise HTTPException(
             status_code=status.HTTP_401_UNAUTHORIZED,
-            detail="Invalid email or password",
-        )
-
-    result = await db.execute(select(Profile).where(Profile.id == sb_user.id))
-    profile = result.scalar_one_or_none()
-    if not profile:
-        raise HTTPException(
-            status_code=status.HTTP_404_NOT_FOUND,
-            detail="User profile not found",
+            detail="Invalid username or password",
         )
 
     return LoginResponse(
@@ -51,7 +52,7 @@ async def login(data: LoginRequest, db: DbSession):
         expires_in=session.expires_in,
         user=CurrentUser(
             id=profile.id,
-            email=sb_user.email,
+            email=profile.email,
             role=profile.role,
             username=profile.username,
         ),
