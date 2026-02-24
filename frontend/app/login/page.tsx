@@ -11,7 +11,7 @@ import { toast } from "sonner";
 import { motion } from "framer-motion";
 import AuroraBackground from "@/components/aurora-bg";
 import { api } from "@/lib/api";
-import { storeAuth } from "@/lib/auth";
+import { storeAuth, storeExpiry } from "@/lib/auth";
 
 export default function LoginPage() {
   const [username, setUsername] = useState("");
@@ -27,6 +27,7 @@ export default function LoginPage() {
     try {
       const data = await api.login(username, password);
       storeAuth(data.access_token, data.user);
+      storeExpiry(data.expires_in);
       toast.success("Login successful");
 
       router.push("/dashboard");

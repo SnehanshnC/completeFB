@@ -195,6 +195,14 @@ export default function ManagePostsPage() {
 
   const handleEditSave = async () => {
     if (!editPost) return;
+
+    const schedDate = new Date(editScheduledAt);
+    const minDate = new Date(Date.now() + 60_000);
+    if (schedDate < minDate) {
+      toast.error("Scheduled time must be at least 1 minute in the future");
+      return;
+    }
+
     setEditSaving(true);
     try {
       const updated = await api.updateScheduledPost(editPost.id, {
@@ -471,6 +479,11 @@ export default function ManagePostsPage() {
                 type="datetime-local"
                 value={editScheduledAt}
                 onChange={(e) => setEditScheduledAt(e.target.value)}
+                min={(() => {
+                  const d = new Date(Date.now() + 60_000);
+                  const pad = (n: number) => String(n).padStart(2, "0");
+                  return `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())}T${pad(d.getHours())}:${pad(d.getMinutes())}`;
+                })()}
                 className="bg-[rgba(30,58,138,0.2)] border-white/12 text-white placeholder:text-white/40 [color-scheme:dark]"
               />
             </div>

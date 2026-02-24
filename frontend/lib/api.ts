@@ -1,4 +1,4 @@
-import { getStoredToken } from "./auth";
+import { getStoredToken, clearAuth } from "./auth";
 import type {
   LoginResponse,
   Page,
@@ -15,28 +15,54 @@ import type {
 
 const BASE_URL = process.env.NEXT_PUBLIC_API_URL ?? "http://localhost:8000";
 
+const inflight = new Map<string, Promise<any>>();
+
 async function request<T>(path: string, options?: RequestInit): Promise<T> {
-  const token = getStoredToken();
-  const headers: HeadersInit = {
-    "Content-Type": "application/json",
-    ...options?.headers,
-  };
+  const method = options?.method || "GET";
 
-  if (token) {
-    (headers as Record<string, string>)["Authorization"] = `Bearer ${token}`;
+  // Deduplicate concurrent identical GET requests
+  if (method === "GET") {
+    const existing = inflight.get(path);
+    if (existing) return existing as Promise<T>;
   }
 
-  const res = await fetch(`${BASE_URL}${path}`, {
-    ...options,
-    headers,
-  });
+  const promise = (async () => {
+    const token = getStoredToken();
+    const headers: HeadersInit = {
+      "Content-Type": "application/json",
+      ...options?.headers,
+    };
 
-  if (!res.ok) {
-    const body = await res.json().catch(() => ({}));
-    throw new Error(body.detail ?? body.error ?? `Request failed (${res.status})`);
+    if (token) {
+      (headers as Record<string, string>)["Authorization"] = `Bearer ${token}`;
+    }
+
+    const res = await fetch(`${BASE_URL}${path}`, {
+      ...options,
+      headers,
+    });
+
+    if (!res.ok) {
+      if (res.status === 401) {
+        clearAuth();
+        if (typeof window !== "undefined") {
+          window.location.href = "/login";
+        }
+        throw new Error("Session expired — please log in again");
+      }
+      const body = await res.json().catch(() => ({}));
+      throw new Error(body.detail ?? body.error ?? `Request failed (${res.status})`);
+    }
+
+    return res.json() as Promise<T>;
+  })();
+
+  if (method === "GET") {
+    inflight.set(path, promise);
+    promise.finally(() => inflight.delete(path));
   }
 
-  return res.json() as Promise<T>;
+  return promise;
 }
 
 async function requestMultipart<T>(path: string, body: FormData): Promise<T> {
@@ -51,6 +77,13 @@ async function requestMultipart<T>(path: string, body: FormData): Promise<T> {
   });
 
   if (!res.ok) {
+    if (res.status === 401) {
+      clearAuth();
+      if (typeof window !== "undefined") {
+        window.location.href = "/login";
+      }
+      throw new Error("Session expired — please log in again");
+    }
     const err = await res.json().catch(() => ({}));
     throw new Error(err.detail ?? err.error ?? `Request failed (${res.status})`);
   }

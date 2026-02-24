@@ -5,7 +5,6 @@ import { ImagePlus, Link, X } from "lucide-react";
 import { toast } from "sonner";
 import { api } from "@/lib/api";
 import { isAdmin } from "@/lib/auth";
-import { uploadToImgBB } from "@/lib/imgbb";
 import type { Page } from "@/lib/types";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -33,6 +32,8 @@ export default function CreatePostPage() {
   const [mode, setMode] = useState<PostMode>("now");
   const [scheduledAt, setScheduledAt] = useState("");
   const [submitting, setSubmitting] = useState(false);
+  const [pendingFile, setPendingFile] = useState<File | null>(null);
+  const [autoIncrement, setAutoIncrement] = useState(true);
 
   // ── Fetch pages on mount ──
   useEffect(() => {
@@ -48,29 +49,16 @@ export default function CreatePostPage() {
       .finally(() => setLoadingPages(false));
   }, [admin]);
 
-  // ── Photo upload handler (ImgBB) ──
-  async function handlePhotoSelect(e: React.ChangeEvent<HTMLInputElement>) {
+  // ── Photo select handler (deferred upload) ──
+  function handlePhotoSelect(e: React.ChangeEvent<HTMLInputElement>) {
     const file = e.target.files?.[0];
     if (!file) return;
 
     const localUrl = URL.createObjectURL(file);
     setPhotoPreview(localUrl);
     setPhotoSource("upload");
-
-    setUploadingPhoto(true);
-    try {
-      const url = await uploadToImgBB(file);
-      setPhotoUrl(url);
-      toast.success("Photo uploaded");
-    } catch (err: unknown) {
-      const msg = err instanceof Error ? err.message : "Upload failed";
-      toast.error("Photo upload failed", { description: msg });
-      setPhotoPreview(null);
-      setPhotoUrl(undefined);
-      setPhotoSource(null);
-    } finally {
-      setUploadingPhoto(false);
-    }
+    setPendingFile(file);
+    setPhotoUrl(undefined);
   }
 
   // ── Clipboard paste handler (URL extraction + ImgBB fallback) ──
@@ -100,7 +88,7 @@ export default function CreatePostPage() {
       }
     }
 
-    // 2. Fall back to image blob → upload to ImgBB
+    // 2. Fall back to image blob → deferred upload
     for (const item of Array.from(items)) {
       if (item.type.startsWith("image/")) {
         e.preventDefault();
@@ -110,22 +98,9 @@ export default function CreatePostPage() {
         const localUrl = URL.createObjectURL(file);
         setPhotoPreview(localUrl);
         setPhotoSource("upload");
-
-        setUploadingPhoto(true);
-        toast.info("Image pasted — uploading to ImgBB...");
-        try {
-          const url = await uploadToImgBB(file);
-          setPhotoUrl(url);
-          toast.success("Pasted image uploaded");
-        } catch (err: unknown) {
-          const msg = err instanceof Error ? err.message : "Upload failed";
-          toast.error("Paste upload failed", { description: msg });
-          setPhotoPreview(null);
-          setPhotoUrl(undefined);
-          setPhotoSource(null);
-        } finally {
-          setUploadingPhoto(false);
-        }
+        setPendingFile(file);
+        setPhotoUrl(undefined);
+        toast.info("Image pasted — will upload on submit");
         return;
       }
     }
@@ -156,6 +131,7 @@ export default function CreatePostPage() {
     setPhotoPreview(null);
     setPhotoSource(null);
     setImageUrlInput("");
+    setPendingFile(null);
   }
 
   // ── Reset form ──
@@ -165,6 +141,7 @@ export default function CreatePostPage() {
     setPhotoPreview(null);
     setPhotoSource(null);
     setImageUrlInput("");
+    setPendingFile(null);
     setMode("now");
     setScheduledAt("");
     if (admin && pages.length > 0) {
@@ -191,13 +168,38 @@ export default function CreatePostPage() {
       return;
     }
 
+    // Block scheduling in the past (must be at least 1 min in the future)
+    if (mode === "schedule") {
+      const schedDate = new Date(scheduledAt);
+      const minDate = new Date(Date.now() + 60_000);
+      if (schedDate < minDate) {
+        toast.error("Scheduled time must be at least 1 minute in the future");
+        return;
+      }
+    }
+
     setSubmitting(true);
     try {
+      // Upload pending file via backend if needed
+      let finalPhotoUrl = photoUrl;
+      if (pendingFile && !photoUrl) {
+        setUploadingPhoto(true);
+        try {
+          finalPhotoUrl = (await api.uploadPhoto(pendingFile)).url;
+        } catch (err: unknown) {
+          const msg = err instanceof Error ? err.message : "Upload failed";
+          toast.error("Photo upload failed", { description: msg });
+          return;
+        } finally {
+          setUploadingPhoto(false);
+        }
+      }
+
       if (mode === "now") {
         await api.postImmediate({
           page_id: selectedPageId as number,
           message: message.trim(),
-          ...(photoUrl ? { photo_url: photoUrl } : {}),
+          ...(finalPhotoUrl ? { photo_url: finalPhotoUrl } : {}),
         });
         toast.success("Post published successfully!");
       } else {
@@ -205,9 +207,11 @@ export default function CreatePostPage() {
           page_id: selectedPageId as number,
           message: message.trim(),
           scheduled_at: new Date(scheduledAt).toISOString(),
-          ...(photoUrl ? { photo_url: photoUrl } : {}),
+          ...(finalPhotoUrl ? { photo_url: finalPhotoUrl } : {}),
         });
         toast.success("Post scheduled successfully!");
+        // Save last scheduled time for auto-increment
+        localStorage.setItem("lastScheduledTime", scheduledAt);
       }
       resetForm();
     } catch (err: unknown) {
@@ -380,7 +384,20 @@ export default function CreatePostPage() {
             </button>
             <button
               type="button"
-              onClick={() => setMode("schedule")}
+              onClick={() => {
+                setMode("schedule");
+                // Auto-fill from last scheduled time + 30 min
+                if (autoIncrement) {
+                  const last = localStorage.getItem("lastScheduledTime");
+                  if (last) {
+                    const next = new Date(new Date(last).getTime() + 30 * 60 * 1000);
+                    // Format as YYYY-MM-DDTHH:MM for datetime-local input
+                    const pad = (n: number) => String(n).padStart(2, "0");
+                    const formatted = `${next.getFullYear()}-${pad(next.getMonth() + 1)}-${pad(next.getDate())}T${pad(next.getHours())}:${pad(next.getMinutes())}`;
+                    setScheduledAt(formatted);
+                  }
+                }
+              }}
               className={`rounded-lg border px-4 py-2 text-sm font-medium transition ${
                 mode === "schedule"
                   ? "border-cyan-400/25 bg-cyan-500/20 text-white"
@@ -394,14 +411,30 @@ export default function CreatePostPage() {
 
         {/* ── Schedule datetime (conditional) ── */}
         {mode === "schedule" && (
-          <div className="space-y-2">
-            <Label className="text-white/60 text-sm">Scheduled Date & Time</Label>
-            <input
-              type="datetime-local"
-              value={scheduledAt}
-              onChange={(e) => setScheduledAt(e.target.value)}
-              className="w-full rounded-md border bg-[rgba(30,58,138,0.2)] border-white/12 text-white px-3 py-2 text-sm outline-none focus:border-cyan-400/40 focus:ring-1 focus:ring-cyan-400/25 transition [color-scheme:dark]"
-            />
+          <div className="space-y-3">
+            <div className="space-y-2">
+              <Label className="text-white/60 text-sm">Scheduled Date & Time</Label>
+              <input
+                type="datetime-local"
+                value={scheduledAt}
+                onChange={(e) => setScheduledAt(e.target.value)}
+                min={(() => {
+                  const d = new Date(Date.now() + 60_000);
+                  const pad = (n: number) => String(n).padStart(2, "0");
+                  return `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())}T${pad(d.getHours())}:${pad(d.getMinutes())}`;
+                })()}
+                className="w-full rounded-md border bg-[rgba(30,58,138,0.2)] border-white/12 text-white px-3 py-2 text-sm outline-none focus:border-cyan-400/40 focus:ring-1 focus:ring-cyan-400/25 transition [color-scheme:dark]"
+              />
+            </div>
+            <label className="flex items-center gap-2 cursor-pointer">
+              <input
+                type="checkbox"
+                checked={autoIncrement}
+                onChange={(e) => setAutoIncrement(e.target.checked)}
+                className="h-3.5 w-3.5 rounded border-white/20 bg-white/5 accent-cyan-500"
+              />
+              <span className="text-xs text-white/50">Auto +30 min from last schedule</span>
+            </label>
           </div>
         )}
 
@@ -412,9 +445,11 @@ export default function CreatePostPage() {
           className="border border-cyan-400/25 bg-cyan-500/20 text-white hover:bg-cyan-500/30 disabled:opacity-50"
         >
           {submitting
-            ? mode === "now"
-              ? "Publishing..."
-              : "Scheduling..."
+            ? uploadingPhoto
+              ? "Uploading photo..."
+              : mode === "now"
+                ? "Publishing..."
+                : "Scheduling..."
             : mode === "now"
               ? "Publish Post"
               : "Schedule Post"}
