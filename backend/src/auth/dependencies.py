@@ -3,8 +3,7 @@ from uuid import UUID
 
 import jwt
 from jwt import PyJWKClient
-from fastapi import Depends, HTTPException, status
-from fastapi.security import HTTPAuthorizationCredentials, HTTPBearer
+from fastapi import Depends, HTTPException, Request, status
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
@@ -14,8 +13,6 @@ from src.auth.schemas import CurrentUser
 from src.users.models import Profile
 from src.pages.models import PagePermission
 
-security = HTTPBearer()
-
 # Fetches Supabase's public key automatically and caches it.
 # Works with both old HS256 projects and new ECC P-256 projects.
 _jwks_client = PyJWKClient(
@@ -24,11 +21,27 @@ _jwks_client = PyJWKClient(
 )
 
 
+def _extract_token(request: Request) -> str:
+    """Extract JWT from HttpOnly cookie first, falling back to Authorization header."""
+    token = request.cookies.get(settings.COOKIE_NAME)
+    if token:
+        return token
+
+    auth_header = request.headers.get("Authorization")
+    if auth_header and auth_header.startswith("Bearer "):
+        return auth_header[7:]
+
+    raise HTTPException(
+        status_code=status.HTTP_401_UNAUTHORIZED,
+        detail="Not authenticated",
+    )
+
+
 async def get_current_user(
-    credentials: Annotated[HTTPAuthorizationCredentials, Depends(security)],
+    request: Request,
     db: Annotated[AsyncSession, Depends(get_db)],
 ) -> CurrentUser:
-    token = credentials.credentials
+    token = _extract_token(request)
     try:
         signing_key = _jwks_client.get_signing_key_from_jwt(token)
         payload = jwt.decode(

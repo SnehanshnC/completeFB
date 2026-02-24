@@ -1,4 +1,4 @@
-from fastapi import APIRouter, HTTPException, status
+from fastapi import APIRouter, HTTPException, Response, status
 from sqlalchemy import select
 from supabase import ClientOptions, create_client
 
@@ -13,10 +13,10 @@ router = APIRouter(prefix="/auth", tags=["auth"])
 
 
 @router.post("/login", response_model=LoginResponse)
-async def login(data: LoginRequest, db: DbSession):
+async def login(data: LoginRequest, response: Response, db: DbSession):
     """
-    Exchange username/password for a JWT. Resolves the username to the
-    email stored in the profiles table, then authenticates via Supabase.
+    Exchange username/password for a JWT. Sets the token as an HttpOnly cookie
+    and returns user info (no token in body).
     """
     # Look up the profile by username to get the associated email
     result = await db.execute(
@@ -51,8 +51,18 @@ async def login(data: LoginRequest, db: DbSession):
             detail="Invalid username or password",
         )
 
+    response.set_cookie(
+        key=settings.COOKIE_NAME,
+        value=session.access_token,
+        httponly=settings.COOKIE_HTTPONLY,
+        secure=settings.COOKIE_SECURE,
+        samesite=settings.COOKIE_SAMESITE,
+        max_age=session.expires_in,
+        path=settings.COOKIE_PATH,
+        domain=settings.COOKIE_DOMAIN,
+    )
+
     return LoginResponse(
-        access_token=session.access_token,
         expires_in=session.expires_in,
         user=CurrentUser(
             id=profile.id,
@@ -61,6 +71,16 @@ async def login(data: LoginRequest, db: DbSession):
             username=profile.username,
         ),
     )
+
+
+@router.post("/logout")
+async def logout(response: Response):
+    response.delete_cookie(
+        key=settings.COOKIE_NAME,
+        path=settings.COOKIE_PATH,
+        domain=settings.COOKIE_DOMAIN,
+    )
+    return {"detail": "Logged out"}
 
 
 @router.get("/me", response_model=CurrentUser)

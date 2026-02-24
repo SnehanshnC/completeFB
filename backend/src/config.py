@@ -12,5 +12,12 @@ class Settings(BaseSettings):
     CORS_ORIGINS: list[str] = ["http://localhost:3000"]
     DEBUG: bool = False
 
+    COOKIE_NAME: str = "access_token"
+    COOKIE_SECURE: bool = False       # True in production
+    COOKIE_SAMESITE: str = "lax"
+    COOKIE_HTTPONLY: bool = True
+    COOKIE_DOMAIN: str | None = None
+    COOKIE_PATH: str = "/"
+
 
 settings = Settings()

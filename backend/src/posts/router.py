@@ -11,9 +11,10 @@ from src.posts import service
 from src.posts.schemas import (
     ImmediatePostResponse,
     PostCreate,
-    PostRead,
     ScheduledPostCreate,
     ScheduledPostUpdate,
+    serialize_post,
+    serialize_posts,
 )
 from src.storage.client import ALLOWED_TYPES, MAX_SIZE, upload_photo
 
@@ -50,7 +51,11 @@ async def post_immediate(data: PostCreate, user: CurrentUserDep, db: DbSession):
         else:
             result = await post_to_page(page.page_id, page.access_token, data.message)
     except Exception as e:
-        raise HTTPException(status_code=502, detail=f"Facebook API error: {e}")
+        if user.role == "admin":
+            raise HTTPException(status_code=502, detail=f"Facebook API error: {e}")
+        import logging
+        logging.getLogger(__name__).error(f"Facebook API error for user {user.id}: {e}")
+        raise HTTPException(status_code=502, detail="Failed to publish to Facebook. Please try again or contact an admin.")
     return ImmediatePostResponse(fb_post_id=result["id"], message="Posted successfully")
 
 
@@ -65,29 +70,30 @@ async def upload_photo_endpoint(file: UploadFile, user: CurrentUserDep):
     return {"url": url}
 
 
-@router.get("/scheduled", response_model=list[PostRead])
+@router.get("/scheduled")
 async def list_scheduled(user: CurrentUserDep, db: DbSession):
-    return await service.list_scheduled_posts(db, user.id, user.role)
+    posts = await service.list_scheduled_posts(db, user.id, user.role)
+    return serialize_posts(posts, user.role)
 
 
-@router.post("/scheduled", response_model=PostRead, status_code=status.HTTP_201_CREATED)
+@router.post("/scheduled", status_code=status.HTTP_201_CREATED)
 async def create_scheduled(data: ScheduledPostCreate, user: CurrentUserDep, db: DbSession):
     await _check_page_access(db, user, data.page_id)
     post = await service.create_scheduled_post(db, user.id, data)
-    return post
+    return serialize_post(post, user.role)
 
 
-@router.get("/scheduled/{post_id}", response_model=PostRead)
+@router.get("/scheduled/{post_id}")
 async def get_scheduled(post_id: int, user: CurrentUserDep, db: DbSession):
     post = await service.get_scheduled_post(db, post_id)
     if not post:
         raise HTTPException(status_code=404, detail="Post not found")
     if user.role != "admin" and post.user_id != user.id:
         raise HTTPException(status_code=403, detail="Not authorized")
-    return post
+    return serialize_post(post, user.role)
 
 
-@router.put("/scheduled/{post_id}", response_model=PostRead)
+@router.put("/scheduled/{post_id}")
 async def update_scheduled(
     post_id: int, data: ScheduledPostUpdate, user: CurrentUserDep, db: DbSession
 ):
@@ -100,10 +106,11 @@ async def update_scheduled(
         raise HTTPException(status_code=400, detail="Can only update pending posts")
     if data.scheduled_at and data.scheduled_at < datetime.now(timezone.utc) + timedelta(seconds=30):
         raise HTTPException(status_code=400, detail="Scheduled time must be in the future")
-    return await service.update_scheduled_post(db, post, data)
+    updated = await service.update_scheduled_post(db, post, data)
+    return serialize_post(updated, user.role)
 
 
-@router.put("/scheduled/{post_id}/requeue", response_model=PostRead)
+@router.put("/scheduled/{post_id}/requeue")
 async def requeue_scheduled(post_id: int, user: CurrentUserDep, db: DbSession):
     post = await service.get_scheduled_post(db, post_id)
     if not post:
@@ -112,7 +119,8 @@ async def requeue_scheduled(post_id: int, user: CurrentUserDep, db: DbSession):
         raise HTTPException(status_code=403, detail="Not authorized")
     if post.status != "failed":
         raise HTTPException(status_code=400, detail="Can only requeue failed posts")
-    return await service.requeue_post(db, post)
+    updated = await service.requeue_post(db, post)
+    return serialize_post(updated, user.role)
 
 
 @router.delete("/scheduled/{post_id}", status_code=status.HTTP_204_NO_CONTENT)
