@@ -67,3 +67,11 @@ def serialize_post(post, role: str):
 def serialize_posts(posts, role: str):
     schema = PostRead if role == "admin" else PostReadSlim
     return [schema.model_validate(p) for p in posts]
+
+
+class GenerateAiImageRequest(BaseModel):
+    image_url: str
+
+
+class GenerateAiImageResponse(BaseModel):
+    url: str

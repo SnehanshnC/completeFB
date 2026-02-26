@@ -9,6 +9,7 @@ class Settings(BaseSettings):
     SUPABASE_SERVICE_ROLE_KEY: str
     DATABASE_URL: str
     IMGBB_API_KEY: str
+    GEMINI_API_KEY: str
     CORS_ORIGINS: list[str] = ["http://localhost:3000"]
     DEBUG: bool = False
 

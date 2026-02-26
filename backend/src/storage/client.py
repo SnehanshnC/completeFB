@@ -13,12 +13,12 @@ MAX_SIZE = 5 * 1024 * 1024  # 5MB
 
 async def upload_photo(file_bytes: bytes) -> str:
     encoded = base64.b64encode(file_bytes).decode()
-    async with httpx.AsyncClient() as client:
+    async with httpx.AsyncClient(timeout=30.0) as client:
         resp = await client.post(
             "https://api.imgbb.com/1/upload",
             data={"key": settings.IMGBB_API_KEY, "image": encoded},
         )
     resp.raise_for_status()
-    url = resp.json()["data"]["display_url"]
+    url = resp.json()["data"]["image"]["url"]
     logger.info("Uploaded photo to imgBB: %s", url)
     return url

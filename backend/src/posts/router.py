@@ -9,6 +9,8 @@ from src.pages import service as page_service
 from src.pages.models import PagePermission
 from src.posts import service
 from src.posts.schemas import (
+    GenerateAiImageRequest,
+    GenerateAiImageResponse,
     ImmediatePostResponse,
     PostCreate,
     ScheduledPostCreate,
@@ -68,6 +70,25 @@ async def upload_photo_endpoint(file: UploadFile, user: CurrentUserDep):
         raise HTTPException(status_code=400, detail="File too large. Max 5MB")
     url = await upload_photo(contents)
     return {"url": url}
+
+
+@router.post("/generate-ai-image", response_model=GenerateAiImageResponse)
+async def generate_ai_image_endpoint(
+    data: GenerateAiImageRequest, user: CurrentUserDep
+):
+    from src.storage.gemini import generate_ai_image
+
+    try:
+        url = await generate_ai_image(data.image_url)
+    except Exception as e:
+        import logging
+
+        logging.getLogger(__name__).error("AI image generation failed: %s", e)
+        raise HTTPException(
+            status_code=502,
+            detail="AI image generation failed. Please try again.",
+        )
+    return GenerateAiImageResponse(url=url)
 
 
 @router.get("/scheduled")
