@@ -1,5 +1,5 @@
 from datetime import datetime
-from typing import Optional
+from typing import Literal, Optional
 from uuid import UUID
 
 from pydantic import BaseModel
@@ -71,6 +71,7 @@ def serialize_posts(posts, role: str):
 
 class GenerateAiImageRequest(BaseModel):
     image_url: str
+    mode: Literal["simple", "normal"] = "normal"
 
 
 class GenerateAiImageResponse(BaseModel):

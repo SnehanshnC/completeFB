@@ -79,7 +79,7 @@ async def generate_ai_image_endpoint(
     from src.storage.gemini import generate_ai_image
 
     try:
-        url = await generate_ai_image(data.image_url)
+        url = await generate_ai_image(data.image_url, data.mode)
     except Exception as e:
         import logging
 
