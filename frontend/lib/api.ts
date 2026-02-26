@@ -204,4 +204,11 @@ export const api = {
     form.append("file", file);
     return requestMultipart<{ url: string }>("/posts/upload-photo", form);
   },
+
+  generateAiImage(imageUrl: string) {
+    return request<{ url: string }>("/posts/generate-ai-image", {
+      method: "POST",
+      body: JSON.stringify({ image_url: imageUrl }),
+    });
+  },
 };

@@ -1,7 +1,7 @@
 "use client";
 
 import { useEffect, useState, useCallback } from "react";
-import { ImagePlus, Link, X } from "lucide-react";
+import { ImagePlus, Link, RotateCw, X } from "lucide-react";
 import { toast } from "sonner";
 import { api } from "@/lib/api";
 import { isAdmin } from "@/lib/auth";
@@ -34,6 +34,12 @@ export default function CreatePostPage() {
   const [submitting, setSubmitting] = useState(false);
   const [pendingFile, setPendingFile] = useState<File | null>(null);
   const [autoIncrement, setAutoIncrement] = useState(true);
+
+  // ── AI Image Generation ──
+  const [aiEnabled, setAiEnabled] = useState(false);
+  const [aiGenerating, setAiGenerating] = useState(false);
+  const [aiImages, setAiImages] = useState<string[]>([]);
+  const [selectedImageIndex, setSelectedImageIndex] = useState(-1); // -1 = original
 
   // ── Fetch pages on mount ──
   useEffect(() => {
@@ -126,12 +132,47 @@ export default function CreatePostPage() {
     toast.success("Image URL set");
   }
 
+  async function handleGenerateAiImage() {
+    setAiGenerating(true);
+    try {
+      let sourceUrl = photoUrl;
+      // If image is a local file not yet uploaded, upload first
+      if (!sourceUrl && pendingFile) {
+        setUploadingPhoto(true);
+        try {
+          const result = await api.uploadPhoto(pendingFile);
+          sourceUrl = result.url;
+          setPhotoUrl(sourceUrl);
+          setPendingFile(null);
+        } finally {
+          setUploadingPhoto(false);
+        }
+      }
+      if (!sourceUrl) {
+        toast.error("No image available to generate from");
+        return;
+      }
+      const { url } = await api.generateAiImage(sourceUrl);
+      setAiImages((prev) => [...prev, url]);
+      setSelectedImageIndex(aiImages.length); // select the new one
+      toast.success("AI image generated!");
+    } catch (err: unknown) {
+      const msg = err instanceof Error ? err.message : "Generation failed";
+      toast.error("AI generation failed", { description: msg });
+    } finally {
+      setAiGenerating(false);
+    }
+  }
+
   function removePhoto() {
     setPhotoUrl(undefined);
     setPhotoPreview(null);
     setPhotoSource(null);
     setImageUrlInput("");
     setPendingFile(null);
+    setAiEnabled(false);
+    setAiImages([]);
+    setSelectedImageIndex(-1);
   }
 
   // ── Reset form ──
@@ -142,6 +183,9 @@ export default function CreatePostPage() {
     setPhotoSource(null);
     setImageUrlInput("");
     setPendingFile(null);
+    setAiEnabled(false);
+    setAiImages([]);
+    setSelectedImageIndex(-1);
     setMode("now");
     setScheduledAt("");
     if (admin && pages.length > 0) {
@@ -193,6 +237,11 @@ export default function CreatePostPage() {
         } finally {
           setUploadingPhoto(false);
         }
+      }
+
+      // Override with selected AI image if applicable
+      if (aiEnabled && selectedImageIndex >= 0 && aiImages[selectedImageIndex]) {
+        finalPhotoUrl = aiImages[selectedImageIndex];
       }
 
       if (mode === "now") {
@@ -367,6 +416,120 @@ export default function CreatePostPage() {
           )}
         </div>
 
+        {/* ── AI Image Generation ── */}
+        {photoPreview && (
+          <div className="space-y-3">
+            <label className="flex items-center gap-3 cursor-pointer">
+              <button
+                type="button"
+                role="switch"
+                aria-checked={aiEnabled}
+                onClick={() => {
+                  const next = !aiEnabled;
+                  setAiEnabled(next);
+                  if (!next) {
+                    setAiImages([]);
+                    setSelectedImageIndex(-1);
+                  }
+                }}
+                className={`relative inline-flex h-6 w-11 items-center rounded-full transition-colors ${
+                  aiEnabled ? "bg-cyan-500" : "bg-white/20"
+                }`}
+              >
+                <span
+                  className={`inline-block h-4 w-4 rounded-full bg-white transition-transform ${
+                    aiEnabled ? "translate-x-6" : "translate-x-1"
+                  }`}
+                />
+              </button>
+              <span className="text-sm text-white/70">AI Image Generation</span>
+            </label>
+
+            {aiEnabled && (
+              <div className="space-y-3">
+                <Button
+                  type="button"
+                  onClick={handleGenerateAiImage}
+                  disabled={aiGenerating}
+                  className="border border-cyan-400/25 bg-cyan-500/20 text-white hover:bg-cyan-500/30 disabled:opacity-50"
+                  size="sm"
+                >
+                  {aiGenerating ? (
+                    <>
+                      <RotateCw className="mr-2 h-3.5 w-3.5 animate-spin" />
+                      Generating...
+                    </>
+                  ) : aiImages.length > 0 ? (
+                    <>
+                      <RotateCw className="mr-2 h-3.5 w-3.5" />
+                      Generate Again
+                    </>
+                  ) : (
+                    <>
+                      Generate AI Image
+                    </>
+                  )}
+                </Button>
+
+                {aiImages.length > 0 && (
+                  <div className="flex flex-wrap gap-3">
+                    {/* Original thumbnail */}
+                    <button
+                      type="button"
+                      onClick={() => setSelectedImageIndex(-1)}
+                      className={`relative rounded-lg border-2 transition ${
+                        selectedImageIndex === -1
+                          ? "border-cyan-400"
+                          : "border-white/10 hover:border-white/25"
+                      }`}
+                    >
+                      {/* eslint-disable-next-line @next/next/no-img-element */}
+                      <img
+                        src={photoPreview}
+                        alt="Original"
+                        className="h-64 w-64 rounded-md object-cover"
+                      />
+                      <span className="absolute bottom-0 left-0 right-0 rounded-b-md bg-black/60 px-1 py-0.5 text-[10px] text-white text-center">
+                        Original
+                      </span>
+                      {selectedImageIndex === -1 && (
+                        <div className="absolute -right-1 -top-1 h-3 w-3 rounded-full bg-cyan-400" />
+                      )}
+                    </button>
+
+                    {/* AI variant thumbnails */}
+                    {aiImages.map((url, idx) => (
+                      <button
+                        key={idx}
+                        type="button"
+                        onClick={() => setSelectedImageIndex(idx)}
+                        className={`relative rounded-lg border-2 transition ${
+                          selectedImageIndex === idx
+                            ? "border-cyan-400"
+                            : "border-white/10 hover:border-white/25"
+                        }`}
+                      >
+                        {/* eslint-disable-next-line @next/next/no-img-element */}
+                        <img
+                          src={url}
+                          alt={`AI #${idx + 1}`}
+                          className="h-64 w-64 rounded-md object-cover"
+                        />
+                        <span className="absolute bottom-0 left-0 right-0 rounded-b-md bg-black/60 px-1 py-0.5 text-[10px] text-white text-center">
+                          AI #{idx + 1}
+                        </span>
+                        {selectedImageIndex === idx && (
+                          <div className="absolute -right-1 -top-1 h-3 w-3 rounded-full bg-cyan-400" />
+                        )}
+                      </button>
+                    ))}
+                  </div>
+                )}
+              </div>
+            )}
+          </div>
+        )}
+
         {/* ── Post mode toggle ── */}
         <div className="space-y-2">
           <Label className="text-white/60 text-sm">Post Mode</Label>
@@ -441,7 +604,7 @@ export default function CreatePostPage() {
         {/* ── Submit ── */}
         <Button
           type="submit"
-          disabled={submitting || loadingPages || uploadingPhoto || pages.length === 0}
+          disabled={submitting || loadingPages || uploadingPhoto || aiGenerating || pages.length === 0}
           className="border border-cyan-400/25 bg-cyan-500/20 text-white hover:bg-cyan-500/30 disabled:opacity-50"
         >
           {submitting
