@@ -36,6 +36,7 @@ export default function CreatePostPage() {
   const [autoIncrement, setAutoIncrement] = useState(true);
 
   // ── AI Image Generation ──
+  const [aiMode, setAiMode] = useState<"simple" | "normal">("normal");
   const [aiEnabled, setAiEnabled] = useState(false);
   const [aiGenerating, setAiGenerating] = useState(false);
   const [aiImages, setAiImages] = useState<string[]>([]);
@@ -152,7 +153,7 @@ export default function CreatePostPage() {
         toast.error("No image available to generate from");
         return;
       }
-      const { url } = await api.generateAiImage(sourceUrl);
+      const { url } = await api.generateAiImage(sourceUrl, aiMode);
       setAiImages((prev) => [...prev, url]);
       setSelectedImageIndex(aiImages.length); // select the new one
       toast.success("AI image generated!");
@@ -173,6 +174,7 @@ export default function CreatePostPage() {
     setAiEnabled(false);
     setAiImages([]);
     setSelectedImageIndex(-1);
+    setAiMode("normal");
   }
 
   // ── Reset form ──
@@ -186,6 +188,7 @@ export default function CreatePostPage() {
     setAiEnabled(false);
     setAiImages([]);
     setSelectedImageIndex(-1);
+    setAiMode("normal");
     setMode("now");
     setScheduledAt("");
     if (admin && pages.length > 0) {
@@ -447,6 +450,31 @@ export default function CreatePostPage() {
 
             {aiEnabled && (
               <div className="space-y-3">
+                <div className="flex gap-3">
+                  <button
+                    type="button"
+                    onClick={() => setAiMode("simple")}
+                    className={`rounded-lg border px-4 py-2 text-sm font-medium transition ${
+                      aiMode === "simple"
+                        ? "border-cyan-400/25 bg-cyan-500/20 text-white"
+                        : "border-white/10 bg-white/5 text-white/60 hover:bg-white/10"
+                    }`}
+                  >
+                    Simple, Borderline
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => setAiMode("normal")}
+                    className={`rounded-lg border px-4 py-2 text-sm font-medium transition ${
+                      aiMode === "normal"
+                        ? "border-cyan-400/25 bg-cyan-500/20 text-white"
+                        : "border-white/10 bg-white/5 text-white/60 hover:bg-white/10"
+                    }`}
+                  >
+                    Normal
+                  </button>
+                </div>
+
                 <Button
                   type="button"
                   onClick={handleGenerateAiImage}

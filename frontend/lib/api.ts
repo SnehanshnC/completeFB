@@ -205,10 +205,10 @@ export const api = {
     return requestMultipart<{ url: string }>("/posts/upload-photo", form);
   },
 
-  generateAiImage(imageUrl: string) {
+  generateAiImage(imageUrl: string, mode: "simple" | "normal" = "normal") {
     return request<{ url: string }>("/posts/generate-ai-image", {
       method: "POST",
-      body: JSON.stringify({ image_url: imageUrl }),
+      body: JSON.stringify({ image_url: imageUrl, mode }),
     });
   },
 };
