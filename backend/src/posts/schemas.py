@@ -48,6 +48,7 @@ class PostReadSlim(BaseModel):
     photo_url: Optional[str] = None
     scheduled_at: datetime
     status: str
+    error_message: Optional[str] = None
     created_at: datetime
     updated_at: datetime
 

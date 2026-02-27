@@ -1,7 +1,7 @@
 "use client";
 
 import { useEffect, useState, useCallback } from "react";
-import { ImagePlus, Link, RotateCw, X } from "lucide-react";
+import { CheckCircle, ImagePlus, Link, RotateCw, X, XCircle } from "lucide-react";
 import { toast } from "sonner";
 import { api } from "@/lib/api";
 import { isAdmin } from "@/lib/auth";
@@ -34,6 +34,9 @@ export default function CreatePostPage() {
   const [submitting, setSubmitting] = useState(false);
   const [pendingFile, setPendingFile] = useState<File | null>(null);
   const [autoIncrement, setAutoIncrement] = useState(true);
+
+  // ── Inline result card ──
+  const [result, setResult] = useState<{ success: boolean; message: string } | null>(null);
 
   // ── AI Image Generation ──
   const [aiMode, setAiMode] = useState<"simple" | "normal">("normal");
@@ -226,6 +229,7 @@ export default function CreatePostPage() {
     }
 
     setSubmitting(true);
+    setResult(null);
     try {
       // Upload pending file via backend if needed
       let finalPhotoUrl = photoUrl;
@@ -235,7 +239,7 @@ export default function CreatePostPage() {
           finalPhotoUrl = (await api.uploadPhoto(pendingFile)).url;
         } catch (err: unknown) {
           const msg = err instanceof Error ? err.message : "Upload failed";
-          toast.error("Photo upload failed", { description: msg });
+          setResult({ success: false, message: `Photo upload failed: ${msg}` });
           return;
         } finally {
           setUploadingPhoto(false);
@@ -253,7 +257,7 @@ export default function CreatePostPage() {
           message: message.trim(),
           ...(finalPhotoUrl ? { photo_url: finalPhotoUrl } : {}),
         });
-        toast.success("Post published successfully!");
+        setResult({ success: true, message: "Post published successfully!" });
       } else {
         await api.createScheduledPost({
           page_id: selectedPageId as number,
@@ -261,14 +265,14 @@ export default function CreatePostPage() {
           scheduled_at: new Date(scheduledAt).toISOString(),
           ...(finalPhotoUrl ? { photo_url: finalPhotoUrl } : {}),
         });
-        toast.success("Post scheduled successfully!");
+        setResult({ success: true, message: "Post scheduled successfully!" });
         // Save last scheduled time for auto-increment
         localStorage.setItem("lastScheduledTime", scheduledAt);
       }
       resetForm();
     } catch (err: unknown) {
       const msg = err instanceof Error ? err.message : "Something went wrong";
-      toast.error("Failed to create post", { description: msg });
+      setResult({ success: false, message: msg });
     } finally {
       setSubmitting(false);
     }
@@ -334,7 +338,7 @@ export default function CreatePostPage() {
           <Label className="text-white/60 text-sm">Message</Label>
           <Textarea
             value={message}
-            onChange={(e) => setMessage(e.target.value)}
+            onChange={(e) => { setMessage(e.target.value); setResult(null); }}
             placeholder="What would you like to post?"
             rows={5}
             className="bg-[rgba(30,58,138,0.2)] border-white/12 text-white placeholder:text-white/40 resize-none"
@@ -645,6 +649,24 @@ export default function CreatePostPage() {
               ? "Publish Post"
               : "Schedule Post"}
         </Button>
+
+        {/* ── Inline result card ── */}
+        {result && (
+          <div
+            className={`flex items-start gap-3 rounded-lg border p-4 ${
+              result.success
+                ? "bg-green-500/10 border-green-400/25 text-green-300"
+                : "bg-red-500/10 border-red-400/25 text-red-300"
+            }`}
+          >
+            {result.success ? (
+              <CheckCircle className="mt-0.5 h-5 w-5 shrink-0" />
+            ) : (
+              <XCircle className="mt-0.5 h-5 w-5 shrink-0" />
+            )}
+            <p className="text-sm">{result.message}</p>
+          </div>
+        )}
       </form>
     </div>
   );

@@ -62,7 +62,21 @@ def _call_gemini(image_bytes: bytes, mime_type: str, mode: AiMode = "normal") ->
         ],
         config=types.GenerateContentConfig(**config_kwargs),
     )
-    for part in response.candidates[0].content.parts:
+    # Guard against Gemini refusing to generate (content policy / safety block).
+    # The API returns HTTP 200 but candidates[0].content or .parts can be None.
+    candidates = response.candidates
+    if not candidates:
+        raise RuntimeError("Gemini returned no candidates — image generation was blocked")
+
+    candidate = candidates[0]
+    content = getattr(candidate, "content", None)
+    parts = getattr(content, "parts", None) if content else None
+
+    if not parts:
+        reason = getattr(candidate, "finish_reason", None) or "unknown"
+        raise RuntimeError(f"Gemini refused to generate this image (reason: {reason})")
+
+    for part in parts:
         if part.inline_data is not None:
             return part.inline_data.data
         if part.text:

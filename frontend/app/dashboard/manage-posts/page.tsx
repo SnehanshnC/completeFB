@@ -396,7 +396,16 @@ export default function ManagePostsPage() {
                   <TableCell className="text-white/70 whitespace-nowrap">
                     {formatDateTime(post.scheduled_at)}
                   </TableCell>
-                  <TableCell>{statusBadge(post.status)}</TableCell>
+                  <TableCell>
+                    <div className="space-y-1">
+                      {statusBadge(post.status)}
+                      {post.status === "failed" && post.error_message && (
+                        <div className="bg-red-500/10 text-red-300 text-xs rounded px-2 py-1">
+                          Error: {post.error_message}
+                        </div>
+                      )}
+                    </div>
+                  </TableCell>
                   <TableCell className="text-right">
                     <DropdownMenu>
                       <DropdownMenuTrigger asChild>
