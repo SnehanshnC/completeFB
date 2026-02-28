@@ -123,8 +123,8 @@ async def update_scheduled(
         raise HTTPException(status_code=404, detail="Post not found")
     if user.role != "admin" and post.user_id != user.id:
         raise HTTPException(status_code=403, detail="Not authorized")
-    if post.status != "pending":
-        raise HTTPException(status_code=400, detail="Can only update pending posts")
+    if post.status not in ("pending", "failed"):
+        raise HTTPException(status_code=400, detail="Can only update pending or failed posts")
     if data.scheduled_at and data.scheduled_at < datetime.now(timezone.utc) + timedelta(seconds=30):
         raise HTTPException(status_code=400, detail="Scheduled time must be in the future")
     updated = await service.update_scheduled_post(db, post, data)

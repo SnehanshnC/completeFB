@@ -9,8 +9,11 @@ logger = logging.getLogger(__name__)
 GRAPH_API = "https://graph.facebook.com/v18.0"
 
 
+_TIMEOUT = httpx.Timeout(60.0)
+
+
 async def validate_token(access_token: str) -> PageTokenValidation:
-    async with httpx.AsyncClient() as client:
+    async with httpx.AsyncClient(timeout=_TIMEOUT) as client:
         resp = await client.get(
             f"{GRAPH_API}/me",
             params={"fields": "id,name", "access_token": access_token},
@@ -26,7 +29,7 @@ async def validate_token(access_token: str) -> PageTokenValidation:
 async def post_to_page(
     page_id: str, access_token: str, message: str
 ) -> dict:
-    async with httpx.AsyncClient() as client:
+    async with httpx.AsyncClient(timeout=_TIMEOUT) as client:
         resp = await client.post(
             f"{GRAPH_API}/{page_id}/feed",
             data={"message": message, "access_token": access_token},
@@ -38,7 +41,7 @@ async def post_to_page(
 async def post_photo_to_page(
     page_id: str, access_token: str, photo_url: str, caption: str
 ) -> dict:
-    async with httpx.AsyncClient() as client:
+    async with httpx.AsyncClient(timeout=_TIMEOUT) as client:
         # Step 1: Upload photo as unpublished
         photo_resp = await client.post(
             f"{GRAPH_API}/{page_id}/photos",

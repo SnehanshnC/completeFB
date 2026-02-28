@@ -1,4 +1,5 @@
 import logging
+from datetime import datetime, timezone, timedelta
 from typing import Optional
 from uuid import UUID
 
@@ -59,6 +60,7 @@ async def update_scheduled_post(
 async def requeue_post(db: AsyncSession, post: ScheduledPost) -> ScheduledPost:
     post.status = "pending"
     post.error_message = None
+    post.scheduled_at = datetime.now(timezone.utc) + timedelta(minutes=2)
     await db.commit()
     await db.refresh(post)
     return post

@@ -1,5 +1,6 @@
 import asyncio
 import logging
+import traceback
 from datetime import datetime, timezone
 
 from sqlalchemy import select, delete
@@ -30,8 +31,8 @@ async def _process_post(data: dict) -> None:
         logger.info("Posted and deleted scheduled post %d (fb_id=%s)", data["post_id"], result.get("id"))
 
     except Exception as e:
-        error_detail = repr(e) if not str(e) else str(e)
-        logger.exception("Failed to post scheduled post %d: %s", data["post_id"], error_detail)
+        error_detail = traceback.format_exc()
+        logger.exception("Failed to post scheduled post %d: %s", data["post_id"], repr(e))
         async with async_session() as db:
             result = await db.execute(
                 select(ScheduledPost).where(ScheduledPost.id == data["post_id"])
