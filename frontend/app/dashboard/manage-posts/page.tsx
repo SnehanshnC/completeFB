@@ -382,8 +382,8 @@ export default function ManagePostsPage() {
                   key={post.id}
                   className="border-white/10 hover:bg-white/5"
                 >
-                  <TableCell className="text-white/90 max-w-[250px]">
-                    {truncate(post.message)}
+                  <TableCell className="text-white/90 max-w-[250px] overflow-hidden">
+                    <span className="block truncate">{post.message}</span>
                   </TableCell>
                   <TableCell className="text-white/80">
                     {pageMap.get(post.page_id) ?? `Page #${post.page_id}`}
@@ -401,7 +401,9 @@ export default function ManagePostsPage() {
                       {statusBadge(post.status)}
                       {post.status === "failed" && post.error_message && (
                         <div className="bg-red-500/10 text-red-300 text-xs rounded px-2 py-1">
-                          Error: {post.error_message}
+                          {post.error_message.includes("ReadTimeout")
+                            ? "Timed out — check Facebook, post may have published"
+                            : `Error: ${post.error_message.split("\n")[0]}`}
                         </div>
                       )}
                     </div>
