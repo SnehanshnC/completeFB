@@ -10,6 +10,7 @@ GRAPH_API = "https://graph.facebook.com/v18.0"
 
 
 _TIMEOUT = httpx.Timeout(60.0)
+_PHOTO_TIMEOUT = httpx.Timeout(120.0)
 
 
 async def validate_token(access_token: str) -> PageTokenValidation:
@@ -41,7 +42,7 @@ async def post_to_page(
 async def post_photo_to_page(
     page_id: str, access_token: str, photo_url: str, caption: str
 ) -> dict:
-    async with httpx.AsyncClient(timeout=_TIMEOUT) as client:
+    async with httpx.AsyncClient(timeout=_PHOTO_TIMEOUT) as client:
         # Step 1: Upload photo as unpublished
         photo_resp = await client.post(
             f"{GRAPH_API}/{page_id}/photos",
