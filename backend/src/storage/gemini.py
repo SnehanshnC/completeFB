@@ -98,7 +98,7 @@ def _call_gemini(image_bytes: bytes, mime_type: str, mode: AiMode = "normal") ->
 
 async def generate_ai_image(image_url: str, mode: AiMode = "normal") -> str:
     """Download image from URL, generate AI variant via Gemini, upload to imgBB."""
-    async with httpx.AsyncClient() as client:
+    async with httpx.AsyncClient(timeout=60.0) as client:
         resp = await client.get(image_url, follow_redirects=True)
         resp.raise_for_status()
     image_bytes = resp.content

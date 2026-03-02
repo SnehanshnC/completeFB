@@ -83,7 +83,7 @@ async def generate_ai_image_endpoint(
     except Exception as e:
         import logging
 
-        logging.getLogger(__name__).error("AI image generation failed: %s", e)
+        logging.getLogger(__name__).error("AI image generation failed: %s", repr(e))
         raise HTTPException(
             status_code=502,
             detail="AI image generation failed. Please try again.",
