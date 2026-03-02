@@ -39,7 +39,7 @@ export default function CreatePostPage() {
   const [result, setResult] = useState<{ success: boolean; message: string } | null>(null);
 
   // ── AI Image Generation ──
-  const [aiMode, setAiMode] = useState<"simple" | "normal">("normal");
+  const [aiMode, setAiMode] = useState<"simple" | "normal" | "niche">("normal");
   const [aiEnabled, setAiEnabled] = useState(false);
   const [aiGenerating, setAiGenerating] = useState(false);
   const [aiImages, setAiImages] = useState<string[]>([]);
@@ -476,6 +476,17 @@ export default function CreatePostPage() {
                     }`}
                   >
                     Normal
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => setAiMode("niche")}
+                    className={`rounded-lg border px-4 py-2 text-sm font-medium transition ${
+                      aiMode === "niche"
+                        ? "border-cyan-400/25 bg-cyan-500/20 text-white"
+                        : "border-white/10 bg-white/5 text-white/60 hover:bg-white/10"
+                    }`}
+                  >
+                    Niche Dog
                   </button>
                 </div>
 

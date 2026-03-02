@@ -72,7 +72,7 @@ def serialize_posts(posts, role: str):
 
 class GenerateAiImageRequest(BaseModel):
     image_url: str
-    mode: Literal["simple", "normal"] = "normal"
+    mode: Literal["simple", "normal", "niche"] = "normal"
 
 
 class GenerateAiImageResponse(BaseModel):

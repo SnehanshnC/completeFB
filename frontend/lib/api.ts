@@ -205,7 +205,7 @@ export const api = {
     return requestMultipart<{ url: string }>("/posts/upload-photo", form);
   },
 
-  generateAiImage(imageUrl: string, mode: "simple" | "normal" = "normal") {
+  generateAiImage(imageUrl: string, mode: "simple" | "normal" | "niche" = "normal") {
     return request<{ url: string }>("/posts/generate-ai-image", {
       method: "POST",
       body: JSON.stringify({ image_url: imageUrl, mode }),

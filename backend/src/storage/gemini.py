@@ -11,7 +11,7 @@ from src.storage.client import upload_photo
 
 logger = logging.getLogger(__name__)
 
-AiMode = Literal["simple", "normal"]
+AiMode = Literal["simple", "normal", "niche"]
 
 MODE_CONFIG: dict[str, dict[str, str]] = {
     "simple": {
@@ -36,6 +36,18 @@ MODE_CONFIG: dict[str, dict[str, str]] = {
             "Different capture circumstances, arrangement, and progression stage."
         ),
     },
+    "niche": {
+        "model": "gemini-3.1-flash-image-preview",
+        "prompt": (
+            "AVOID BLUR\n"
+            "An iPhone candid photograph.\n"
+            "Do not recreate this specific scene... "
+            "Generate another real-world occurrence of this incident archetype without blur\n"
+            "Same type of real-world incident and emotional tone as the reference image.\n"
+            "Different capture circumstances, arrangement, and progression stage.\n"
+            "no logos from the input image should be portrayed on the output image"
+        ),
+    },
 }
 
 
@@ -45,7 +57,7 @@ def _call_gemini(image_bytes: bytes, mime_type: str, mode: AiMode = "normal") ->
     client = genai.Client(api_key=settings.GEMINI_API_KEY)
 
     config_kwargs: dict = {"response_modalities": ["IMAGE"]}
-    if mode == "normal":
+    if mode in ("normal", "niche"):
         config_kwargs["image_config"] = types.ImageConfig(image_size="512px")
     else:
         config_kwargs["response_modalities"] = ["IMAGE", "TEXT"]
