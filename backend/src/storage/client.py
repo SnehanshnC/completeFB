@@ -50,7 +50,7 @@ def _compress_for_upload(file_bytes: bytes) -> bytes:
 async def upload_photo(file_bytes: bytes) -> str:
     file_bytes = _compress_for_upload(file_bytes)
     encoded = base64.b64encode(file_bytes).decode()
-    async with httpx.AsyncClient(timeout=30.0) as client:
+    async with httpx.AsyncClient(timeout=90.0) as client:
         resp = await client.post(
             "https://api.imgbb.com/1/upload",
             data={"key": settings.IMGBB_API_KEY, "image": encoded},
