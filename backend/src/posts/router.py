@@ -1,3 +1,4 @@
+import asyncio
 from datetime import datetime, timedelta, timezone
 
 from fastapi import APIRouter, HTTPException, UploadFile, status
@@ -18,7 +19,7 @@ from src.posts.schemas import (
     serialize_post,
     serialize_posts,
 )
-from src.storage.client import ALLOWED_TYPES, MAX_SIZE, upload_photo
+from src.storage.client import ALLOWED_TYPES, MAX_SIZE, delete_photo, upload_photo
 
 router = APIRouter(prefix="/posts", tags=["posts"])
 
@@ -58,6 +59,8 @@ async def post_immediate(data: PostCreate, user: CurrentUserDep, db: DbSession):
         import logging
         logging.getLogger(__name__).error(f"Facebook API error for user {user.id}: {e}")
         raise HTTPException(status_code=502, detail="Failed to publish to Facebook. Please try again or contact an admin.")
+    if data.photo_url:
+        asyncio.ensure_future(delete_photo(data.photo_url))
     return ImmediatePostResponse(fb_post_id=result["id"], message="Posted successfully")
 
 
@@ -144,6 +147,11 @@ async def requeue_scheduled(post_id: int, user: CurrentUserDep, db: DbSession):
     return serialize_post(updated, user.role)
 
 
+@router.delete("/delete-photo", status_code=status.HTTP_204_NO_CONTENT)
+async def delete_photo_endpoint(url: str, user: CurrentUserDep):
+    await delete_photo(url)
+
+
 @router.delete("/scheduled/{post_id}", status_code=status.HTTP_204_NO_CONTENT)
 async def delete_scheduled(post_id: int, user: CurrentUserDep, db: DbSession):
     post = await service.get_scheduled_post(db, post_id)
@@ -151,4 +159,7 @@ async def delete_scheduled(post_id: int, user: CurrentUserDep, db: DbSession):
         raise HTTPException(status_code=404, detail="Post not found")
     if user.role != "admin" and post.user_id != user.id:
         raise HTTPException(status_code=403, detail="Not authorized")
+    photo_url = post.photo_url
     await service.delete_scheduled_post(db, post_id)
+    if photo_url:
+        asyncio.ensure_future(delete_photo(photo_url))

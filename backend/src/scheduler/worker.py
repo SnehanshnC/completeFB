@@ -9,6 +9,7 @@ from src.database import async_session
 from src.facebook.client import post_photo_to_page, post_to_page
 from src.pages.models import Page
 from src.posts.models import ScheduledPost
+from src.storage.client import delete_photo
 
 logger = logging.getLogger(__name__)
 
@@ -29,6 +30,8 @@ async def _process_post(data: dict) -> None:
             await db.execute(delete(ScheduledPost).where(ScheduledPost.id == data["post_id"]))
             await db.commit()
         logger.info("Posted and deleted scheduled post %d (fb_id=%s)", data["post_id"], result.get("id"))
+        if data["photo_url"]:
+            await delete_photo(data["photo_url"])
 
     except Exception as e:
         error_detail = traceback.format_exc()
