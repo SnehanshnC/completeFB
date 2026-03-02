@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useState, useCallback } from "react";
+import { useEffect, useRef, useState, useCallback } from "react";
 import { CheckCircle, ImagePlus, Link, RotateCw, X, XCircle } from "lucide-react";
 import { toast } from "sonner";
 import { api } from "@/lib/api";
@@ -44,6 +44,35 @@ export default function CreatePostPage() {
   const [aiGenerating, setAiGenerating] = useState(false);
   const [aiImages, setAiImages] = useState<string[]>([]);
   const [selectedImageIndex, setSelectedImageIndex] = useState(-1); // -1 = original
+
+  // ── Track uploaded/generated images for cleanup on navigate-away ──
+  const pendingImagesRef = useRef<string[]>([]);
+
+  useEffect(() => {
+    pendingImagesRef.current = [...(photoUrl ? [photoUrl] : []), ...aiImages];
+  }, [photoUrl, aiImages]);
+
+  useEffect(() => {
+    return () => {
+      pendingImagesRef.current.forEach((url) =>
+        api.deletePhoto(url).catch(() => {}),
+      );
+    };
+  }, []);
+
+  useEffect(() => {
+    const handleUnload = () => {
+      pendingImagesRef.current.forEach((url) => {
+        fetch(`/api/posts/delete-photo?url=${encodeURIComponent(url)}`, {
+          method: "DELETE",
+          credentials: "include",
+          keepalive: true,
+        });
+      });
+    };
+    window.addEventListener("beforeunload", handleUnload);
+    return () => window.removeEventListener("beforeunload", handleUnload);
+  }, []);
 
   // ── Fetch pages on mount ──
   useEffect(() => {
@@ -169,6 +198,10 @@ export default function CreatePostPage() {
   }
 
   function removePhoto() {
+    // Clean up any Supabase-hosted images before clearing state
+    const allUrls = [...(photoUrl ? [photoUrl] : []), ...aiImages];
+    allUrls.forEach((url) => api.deletePhoto(url).catch(() => {}));
+
     setPhotoUrl(undefined);
     setPhotoPreview(null);
     setPhotoSource(null);
@@ -269,6 +302,12 @@ export default function CreatePostPage() {
         // Save last scheduled time for auto-increment
         localStorage.setItem("lastScheduledTime", scheduledAt);
       }
+
+      // Delete any uploaded images that weren't used in the post
+      const allImages = [...(photoUrl ? [photoUrl] : []), ...aiImages];
+      const unchosen = allImages.filter((url) => url !== finalPhotoUrl);
+      unchosen.forEach((url) => api.deletePhoto(url).catch(() => {}));
+
       resetForm();
     } catch (err: unknown) {
       const msg = err instanceof Error ? err.message : "Something went wrong";
