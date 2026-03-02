@@ -9,6 +9,9 @@ from src.config import settings
 
 logger = logging.getLogger(__name__)
 
+# Persistent client — reuses SSL connections across requests
+_imgbb_client = httpx.AsyncClient(timeout=90.0)
+
 ALLOWED_TYPES = {"image/jpeg", "image/png", "image/webp", "image/gif"}
 MAX_SIZE = 15 * 1024 * 1024  # 5MB — reject truly massive files early
 
@@ -50,11 +53,10 @@ def _compress_for_upload(file_bytes: bytes) -> bytes:
 async def upload_photo(file_bytes: bytes) -> str:
     file_bytes = _compress_for_upload(file_bytes)
     encoded = base64.b64encode(file_bytes).decode()
-    async with httpx.AsyncClient(timeout=90.0) as client:
-        resp = await client.post(
-            "https://api.imgbb.com/1/upload",
-            data={"key": settings.IMGBB_API_KEY, "image": encoded},
-        )
+    resp = await _imgbb_client.post(
+        "https://api.imgbb.com/1/upload",
+        data={"key": settings.IMGBB_API_KEY, "image": encoded},
+    )
     resp.raise_for_status()
     url = resp.json()["data"]["image"]["url"]
     logger.info("Uploaded photo to imgBB: %s", url)
