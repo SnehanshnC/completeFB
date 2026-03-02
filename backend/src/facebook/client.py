@@ -27,6 +27,25 @@ async def validate_token(access_token: str) -> PageTokenValidation:
     return PageTokenValidation(valid=False, error=resp.text)
 
 
+def _raise_for_fb_status(resp: httpx.Response) -> None:
+    """Raise with Facebook's error message instead of just the HTTP status."""
+    if resp.is_success:
+        return
+    try:
+        fb_error = resp.json().get("error", {})
+        msg = fb_error.get("message", resp.text)
+        code = fb_error.get("code", "")
+        subcode = fb_error.get("error_subcode", "")
+        detail = f"code={code}" + (f" subcode={subcode}" if subcode else "")
+        raise httpx.HTTPStatusError(
+            f"Facebook {resp.status_code}: {msg} ({detail})",
+            request=resp.request,
+            response=resp,
+        )
+    except (ValueError, AttributeError):
+        resp.raise_for_status()
+
+
 async def post_to_page(
     page_id: str, access_token: str, message: str
 ) -> dict:
@@ -35,7 +54,7 @@ async def post_to_page(
             f"{GRAPH_API}/{page_id}/feed",
             data={"message": message, "access_token": access_token},
         )
-    resp.raise_for_status()
+    _raise_for_fb_status(resp)
     return resp.json()
 
 
@@ -52,7 +71,7 @@ async def post_photo_to_page(
                 "access_token": access_token,
             },
         )
-        photo_resp.raise_for_status()
+        _raise_for_fb_status(photo_resp)
         photo_id = photo_resp.json()["id"]
 
         # Step 2: Create feed post with attached media
@@ -64,5 +83,5 @@ async def post_photo_to_page(
                 "access_token": access_token,
             },
         )
-        feed_resp.raise_for_status()
+        _raise_for_fb_status(feed_resp)
         return feed_resp.json()
