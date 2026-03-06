@@ -45,6 +45,11 @@ export default function CreatePostPage() {
   const [aiImages, setAiImages] = useState<string[]>([]);
   const [selectedImageIndex, setSelectedImageIndex] = useState(-1); // -1 = original
 
+  // ── Story Theme Generation ──
+  const [storyTheme, setStoryTheme] = useState<"ungrateful" | "delusional" | "sympathetic">("ungrateful");
+  const [storyGenerating, setStoryGenerating] = useState(false);
+  const [storyPreview, setStoryPreview] = useState<string | null>(null);
+
   // ── Track uploaded/generated images for cleanup on navigate-away ──
   const pendingImagesRef = useRef<string[]>([]);
 
@@ -197,6 +202,54 @@ export default function CreatePostPage() {
     }
   }
 
+  async function handleGenerateStory() {
+    setStoryGenerating(true);
+    try {
+      let sourceUrl: string | undefined;
+      // Use selected AI image if applicable, otherwise use original
+      if (aiEnabled && selectedImageIndex >= 0 && aiImages[selectedImageIndex]) {
+        sourceUrl = aiImages[selectedImageIndex];
+      } else {
+        sourceUrl = photoUrl;
+        // If image is a local file not yet uploaded, upload first
+        if (!sourceUrl && pendingFile) {
+          setUploadingPhoto(true);
+          try {
+            const result = await api.uploadPhoto(pendingFile);
+            sourceUrl = result.url;
+            setPhotoUrl(sourceUrl);
+            setPendingFile(null);
+          } finally {
+            setUploadingPhoto(false);
+          }
+        }
+      }
+      if (!sourceUrl) {
+        toast.error("No image available to generate story from");
+        return;
+      }
+      const { story } = await api.generateStory(sourceUrl, storyTheme);
+      setStoryPreview(story);
+      toast.success("Story generated!");
+    } catch (err: unknown) {
+      const msg = err instanceof Error ? err.message : "Generation failed";
+      toast.error("Story generation failed", { description: msg });
+    } finally {
+      setStoryGenerating(false);
+    }
+  }
+
+  function acceptStory() {
+    if (storyPreview) {
+      setMessage(storyPreview);
+      setStoryPreview(null);
+    }
+  }
+
+  function rejectStory() {
+    setStoryPreview(null);
+  }
+
   function removePhoto() {
     // Clean up any Supabase-hosted images before clearing state
     const allUrls = [...(photoUrl ? [photoUrl] : []), ...aiImages];
@@ -211,6 +264,7 @@ export default function CreatePostPage() {
     setAiImages([]);
     setSelectedImageIndex(-1);
     setAiMode("normal");
+    setStoryPreview(null);
   }
 
   // ── Reset form ──
@@ -225,6 +279,7 @@ export default function CreatePostPage() {
     setAiImages([]);
     setSelectedImageIndex(-1);
     setAiMode("normal");
+    setStoryPreview(null);
     setMode("now");
     setScheduledAt("");
     if (admin && pages.length > 0) {
@@ -612,6 +667,72 @@ export default function CreatePostPage() {
           </div>
         )}
 
+        {/* ── Story Theme Generation ── */}
+        {photoPreview && (
+          <div className="space-y-3">
+            <Label className="text-white/60 text-sm">Story Theme</Label>
+            <div className="flex gap-3">
+              {(["ungrateful", "delusional", "sympathetic"] as const).map((t) => (
+                <button
+                  key={t}
+                  type="button"
+                  onClick={() => setStoryTheme(t)}
+                  className={`rounded-lg border px-4 py-2 text-sm font-medium transition capitalize ${
+                    storyTheme === t
+                      ? "border-cyan-400/25 bg-cyan-500/20 text-white"
+                      : "border-white/10 bg-white/5 text-white/60 hover:bg-white/10"
+                  }`}
+                >
+                  {t}
+                </button>
+              ))}
+            </div>
+
+            <Button
+              type="button"
+              onClick={handleGenerateStory}
+              disabled={storyGenerating}
+              className="border border-cyan-400/25 bg-cyan-500/20 text-white hover:bg-cyan-500/30 disabled:opacity-50"
+              size="sm"
+            >
+              {storyGenerating ? (
+                <>
+                  <RotateCw className="mr-2 h-3.5 w-3.5 animate-spin" />
+                  Generating Story...
+                </>
+              ) : (
+                "Generate Story"
+              )}
+            </Button>
+
+            {storyPreview && (
+              <div className="rounded-lg border border-white/10 bg-white/5 p-4 space-y-3">
+                <p className="text-sm text-white/80 whitespace-pre-wrap">{storyPreview}</p>
+                <div className="flex gap-2">
+                  <Button
+                    type="button"
+                    onClick={acceptStory}
+                    className="border border-green-400/25 bg-green-500/20 text-green-300 hover:bg-green-500/30"
+                    size="sm"
+                  >
+                    <CheckCircle className="mr-1.5 h-3.5 w-3.5" />
+                    Accept
+                  </Button>
+                  <Button
+                    type="button"
+                    onClick={rejectStory}
+                    className="border border-red-400/25 bg-red-500/20 text-red-300 hover:bg-red-500/30"
+                    size="sm"
+                  >
+                    <XCircle className="mr-1.5 h-3.5 w-3.5" />
+                    Reject
+                  </Button>
+                </div>
+              </div>
+            )}
+          </div>
+        )}
+
         {/* ── Post mode toggle ── */}
         <div className="space-y-2">
           <Label className="text-white/60 text-sm">Post Mode</Label>
@@ -686,7 +807,7 @@ export default function CreatePostPage() {
         {/* ── Submit ── */}
         <Button
           type="submit"
-          disabled={submitting || loadingPages || uploadingPhoto || aiGenerating || pages.length === 0}
+          disabled={submitting || loadingPages || uploadingPhoto || aiGenerating || storyGenerating || pages.length === 0}
           className="border border-cyan-400/25 bg-cyan-500/20 text-white hover:bg-cyan-500/30 disabled:opacity-50"
         >
           {submitting

@@ -70,6 +70,15 @@ def serialize_posts(posts, role: str):
     return [schema.model_validate(p) for p in posts]
 
 
+class GenerateStoryRequest(BaseModel):
+    image_url: str
+    theme: Literal["ungrateful", "delusional", "sympathetic"] = "ungrateful"
+
+
+class GenerateStoryResponse(BaseModel):
+    story: str
+
+
 class GenerateAiImageRequest(BaseModel):
     image_url: str
     mode: Literal["simple", "normal", "niche"] = "normal"

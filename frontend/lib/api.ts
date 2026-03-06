@@ -206,6 +206,13 @@ export const api = {
     return requestMultipart<{ url: string }>("/posts/upload-photo", form);
   },
 
+  generateStory(imageUrl: string, theme: "ungrateful" | "delusional" | "sympathetic") {
+    return request<{ story: string }>("/posts/generate-story", {
+      method: "POST",
+      body: JSON.stringify({ image_url: imageUrl, theme }),
+    });
+  },
+
   generateAiImage(imageUrl: string, mode: "simple" | "normal" | "niche" = "normal") {
     return request<{ url: string }>("/posts/generate-ai-image", {
       method: "POST",

@@ -12,6 +12,8 @@ from src.posts import service
 from src.posts.schemas import (
     GenerateAiImageRequest,
     GenerateAiImageResponse,
+    GenerateStoryRequest,
+    GenerateStoryResponse,
     ImmediatePostResponse,
     PostCreate,
     ScheduledPostCreate,
@@ -73,6 +75,25 @@ async def upload_photo_endpoint(file: UploadFile, user: CurrentUserDep):
         raise HTTPException(status_code=400, detail="File too large. Max 5MB")
     url = await upload_photo(contents)
     return {"url": url}
+
+
+@router.post("/generate-story", response_model=GenerateStoryResponse)
+async def generate_story_endpoint(
+    data: GenerateStoryRequest, user: CurrentUserDep
+):
+    from src.storage.gemini import generate_story
+
+    try:
+        story = await generate_story(data.image_url, data.theme)
+    except Exception as e:
+        import logging
+
+        logging.getLogger(__name__).error("Story generation failed: %s", repr(e))
+        raise HTTPException(
+            status_code=502,
+            detail="Story generation failed. Please try again.",
+        )
+    return GenerateStoryResponse(story=story)
 
 
 @router.post("/generate-ai-image", response_model=GenerateAiImageResponse)
