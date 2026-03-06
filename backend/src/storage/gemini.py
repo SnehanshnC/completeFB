@@ -17,7 +17,7 @@ StoryTheme = Literal["ungrateful", "delusional", "sympathetic"]
 
 STORY_THEME_CONFIG: dict[str, dict[str, str]] = {
     "ungrateful": {
-        "model": "gemini-2.5-flash",
+        "model": "gemini-3.1-flash-lite-preview",
         "prompt": (
             'You are a viral story generator where the input is an image and the output is a two to five sentence action of a story. '
             'This is for the "ungrateful" theme. Basically, you\'re going to infer the image and then create a story that has virality potential, '
@@ -28,7 +28,7 @@ STORY_THEME_CONFIG: dict[str, dict[str, str]] = {
         ),
     },
     "delusional": {
-        "model": "gemini-2.5-flash",
+        "model": "gemini-3.1-flash-lite-preview",
         "prompt": (
             "You are generating a 2-5 sentence first-person rant based on an image.\n\n"
             "Rules:\n\n"
@@ -46,7 +46,7 @@ STORY_THEME_CONFIG: dict[str, dict[str, str]] = {
         ),
     },
     "sympathetic": {
-        "model": "gemini-2.5-flash",
+        "model": "gemini-3.1-flash-lite-preview",
         "prompt": (
             "You are a viral short-form story generator.\n\n"
             "Input: An image.\n\n"
