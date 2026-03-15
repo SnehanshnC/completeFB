@@ -148,7 +148,7 @@ async def _call_gemini_async(image_bytes: bytes, mime_type: str, mode: AiMode = 
 
     config_kwargs: dict = {"response_modalities": ["IMAGE"]}
     if mode in ("normal", "niche"):
-        config_kwargs["image_config"] = types.ImageConfig(image_size="512px")
+        config_kwargs["image_config"] = types.ImageConfig(image_size="1K", aspect_ratio="1:1")
     else:
         config_kwargs["response_modalities"] = ["IMAGE", "TEXT"]
 
